@@ -1,0 +1,60 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Deterministic>false</Deterministic>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!--<IsTrimmable>true</IsTrimmable>-->
+    <PublishAot>true</PublishAot>
+    <_AggressiveAttributeTrimming>true</_AggressiveAttributeTrimming>
+    <!--<DebuggerSupport>false</DebuggerSupport>-->
+    <EventSourceSupport>false</EventSourceSupport>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <MetricsSupport>false</MetricsSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <!--<PublishTrimmed>true</PublishTrimmed>-->
+    <!--<StackTraceSupport>false</StackTraceSupport>-->
+    <!--<TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>-->
+    <!--<UseSystemResourceKeys>true</UseSystemResourceKeys>-->
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Resources\**" />
+    <EmbeddedResource Remove="Resources\**" />
+    <None Remove="Resources\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
+    <PackageReference Include="Magick.NET-Q16-HDRI-AnyCPU" Version="14.5.0" />
+    <PackageReference Include="MetadataExtractor" Version="2.8.1" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.3" />
+    <PackageReference Include="System.Text.Json" Version="9.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="ZepLaoSharp">
+      <HintPath>D:\Working Repositories\ZepLaoSharp\ZepLaoSharp.FFMpeg\bin\Release\net8.0\ZepLaoSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="ZepLaoSharp.FFMpeg">
+      <HintPath>D:\Working Repositories\ZepLaoSharp\ZepLaoSharp.FFMpeg\bin\Release\net8.0\ZepLaoSharp.FFMpeg.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
