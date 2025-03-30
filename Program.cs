@@ -16,6 +16,8 @@ namespace ZaloBot
 {
     internal class Program
     {
+        static readonly int MAX_BA_STICKERS_COUNT = 144;
+
         static long[] includedGroupIDs = [1203610066457374544, 8095917403278057918];
         static long xiaoGroupID = 2516010607529018126;
         static int maxBgLength = 1;
@@ -25,6 +27,7 @@ namespace ZaloBot
         static List<long> mutedUserIDs = new List<long>();
         static object locker = new object();
         static string[] webhooks = [];
+        static char prefix = ',';
 
         [DllImport("kernel32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -32,10 +35,10 @@ namespace ZaloBot
 
         static async Task Main(string[] args)
         {
-            while (File.Exists(@$"Backgrounds\{maxBgLength}.png"))
+            while (File.Exists(@$"Data\Backgrounds\{maxBgLength}.png"))
                 maxBgLength++;
             maxBgLength--;
-            webhooks = File.ReadAllLines("webhooks.txt");
+            webhooks = File.ReadAllLines(@"Data\webhooks.txt");
 
             InitializeClient();
             client = clientBuilder.Build();
@@ -76,7 +79,7 @@ namespace ZaloBot
             //Process.Start(new ProcessStartInfo("image.png") { UseShellExecute = true });
         }
 
-        private static async Task EventListeners_Disconnected(object sender, GatewayDisconnectedEventArgs args)
+        static async Task EventListeners_Disconnected(object sender, GatewayDisconnectedEventArgs args)
         {
             await Task.Delay(60000);
             await ((ZaloClient)sender).ConnectAsync();
@@ -84,117 +87,230 @@ namespace ZaloBot
 
         static async Task EventListeners_GroupMessageReceived(object sender, GroupMessageReceivedEventArgs e)
         {
-            if (e.Message.IsMyOwnMessage && !e.IsFromRequest)
+            if (!e.IsFromRequest)
             {
-                string textContent = e.Message.Content[0]?.ToInformationalString() ?? "";
-                if (textContent == "!system_info")
-                {
-                    PerformanceCounter counter = new PerformanceCounter("Process", "Working Set - Private", Process.GetCurrentProcess().ProcessName);
-                    double currentMem = counter.RawValue / 1024d / 1024d;
-                    counter.Dispose();
-                    double currentMemPaged = Process.GetCurrentProcess().PrivateMemorySize64 / 1024d / 1024d;
-                    counter = new PerformanceCounter("Memory", "% Committed Bytes In Use");
-                    long totalMemPaged = counter.RawValue / 1024 / 1024;
-                    counter.Dispose();
-                    GetPhysicallyInstalledSystemMemory(out long totalMem);
-                    totalMem = totalMem / 1024;
-                    counter = new PerformanceCounter("Process", "% Processor Time", Process.GetCurrentProcess().ProcessName);
-                    counter.NextValue();
-                    await Task.Delay(200);
-                    double cpuUsage = counter.NextValue();
-
-                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"CPU: {cpuUsage:00}%\nRAM: {currentMem:00}MB/{totalMem}MB\nPaged: {currentMemPaged:00}MB/{totalMemPaged}MB"));
-                    await e.Message.RecallAsync();
-                }
-                else if (textContent == "!sticker" || (e.Message.Content[0] is ZaloImageContent imgC && imgC.Title == "!sticker"))
-                {
-                    string link = "";
-                    bool isGIF = false;
-                    bool isVideo = false;
-                    if (e.Message.Content[0] is ZaloImageContent imageContent)
-                    {
-                        link = imageContent.ImageLink;
-                        isGIF = imageContent.Action == "recommend.gif";
-                    }
-                    else if (e.Message.Content[0] is ZaloVideoContent videoContent)
-                    {
-                        link = videoContent.VideoLink;
-                        isVideo = true;
-                    }
-                    else if (e.Message.Quote is not null)
-                    {
-                        if (e.Message.Quote.Content is ZaloImageContent quoteImageContent)
-                        {
-                            link = quoteImageContent.ImageLink;
-                            isGIF = quoteImageContent.Action == "recommend.gif";
-                        }
-                        else if (e.Message.Quote.Content is ZaloVideoContent quoteVideoContent)
-                        {
-                            link = quoteVideoContent.VideoLink;
-                            isVideo = true;
-                        }
-                        else if (e.Message.Quote.Content is ZaloFileContent quoteFileContent)
-                        {
-                            if (quoteFileContent.FileExtension == "mp4")
-                            {
-                                link = quoteFileContent.Link;
-                                isVideo = true;
-                            }
-                        }
-                    }
-
-                    if (string.IsNullOrEmpty(link))
-                        await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy ảnh!").WithTimeToLive(10000));
-                    else
-                    {
-                        await e.Message.RecallAsync();
-                        if (isGIF)
-                            await e.Group.SendWebpImageAsStickerAsync(link);
-                        else if (isVideo)
-                            await e.Group.SendVideoAsStickerAsync(link);
-                        else
-                            await e.Group.SendImageAsStickerAsync(link);
-                    }
-                }
-                else if (textContent == "!video")
-                {
-                    if (e.Message.Quote is not null && e.Message.Quote.Content is ZaloFileContent quoteFileContent)
-                    {
-                        if (quoteFileContent.FileExtension == "mp4")
-                        {
-                            await e.Message.RecallAsync();
-                            byte[] video = await httpClient.GetByteArrayAsync(quoteFileContent.Link);
-                            await e.Group.SendMessageAsync(new ZaloMessageBuilder().AddVideoAttachment("video.mp4", video));
-                        }
-                    }
-                    else
-                        await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy video!").WithTimeToLive(10000));
-                }
-
-                else if (textContent == "!testwelcome")
-                {
-                    await e.Message.RecallAsync();
-                    ZaloUser user = await client.GetUserAsync(910878639181570880);
-                    byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink,
-                        [
-                            "Chào mừng",
-                            user.DisplayName, 
-                            $"đã tham gia {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}",
-                            e.Group.Name + '!', 
-                            $"Duyệt bởi {e.Group.Owner.DisplayName}"
-                        ]);
-                    ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                        .WithTimeToLive(120000)
-                        .WithContent("Chào mừng thành viên mới @" + user.DisplayName + "!")
-                        .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
-                    await e.Group.SendMessageAsync(messageBuilder);
-                }
+                await SelfCommands(e);
+                await FunCommands(e);
             }
             await ForwardMessagesToDiscord(e);
             await ModerateXiaoGroupAsync(e);
         }
 
-        private static async Task ModerateXiaoGroupAsync(GroupMessageReceivedEventArgs e)
+        static async Task SelfCommands(GroupMessageReceivedEventArgs e)
+        {
+            if (!e.Message.IsMyOwnMessage)
+                return;
+            string textContent = e.Message.Content[0]?.ToInformationalString() ?? "";
+            if (textContent == prefix + "systeminfo")
+            {
+                PerformanceCounter counter = new PerformanceCounter("Process", "Working Set - Private", Process.GetCurrentProcess().ProcessName);
+                double currentMem = counter.RawValue / 1024d / 1024d;
+                counter.Dispose();
+                double currentMemPaged = Process.GetCurrentProcess().PrivateMemorySize64 / 1024d / 1024d;
+                counter = new PerformanceCounter("Memory", "% Committed Bytes In Use");
+                long totalMemPaged = counter.RawValue / 1024 / 1024;
+                counter.Dispose();
+                GetPhysicallyInstalledSystemMemory(out long totalMem);
+                totalMem = totalMem / 1024;
+                counter = new PerformanceCounter("Process", "% Processor Time", Process.GetCurrentProcess().ProcessName);
+                counter.NextValue();
+                await Task.Delay(200);
+                double cpuUsage = counter.NextValue();
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"CPU: {cpuUsage:00}%\nRAM: {currentMem:00}MB/{totalMem}MB\nPaged: {currentMemPaged:00}MB/{totalMemPaged}MB"));
+            }
+            else if (textContent == prefix + "video")
+            {
+                if (e.Message.Quote is not null && e.Message.Quote.Content is ZaloFileContent quoteFileContent)
+                {
+                    if (quoteFileContent.FileExtension == "mp4")
+                    {
+                        byte[] video = await httpClient.GetByteArrayAsync(quoteFileContent.Link);
+                        await e.Group.SendMessageAsync(new ZaloMessageBuilder().AddVideoAttachment("video.mp4", video));
+                    }
+                }
+                else
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy video!").WithTimeToLive(10000));
+            }
+
+            if (textContent.StartsWith(prefix + "kick "))
+            {
+                if (e.Message.Mentions.Length == 0)
+                {
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
+                    return;
+                }
+                foreach (var mention in e.Message.Mentions.Where(m => !m.IsMentionAll))
+                {
+                    ZaloMember targetMember = await mention.GetMemberAsync(e.Group);
+                    if (targetMember.Role >= e.Author.Role)
+                    {
+                        if (targetMember.Role == ZaloMemberRole.Owner)
+                            await e.Message.ReplyAsync("Key vàng sao mà kick?");
+                        else if (targetMember.Role == ZaloMemberRole.Admin)
+                            await e.Message.ReplyAsync(new ZaloMessageBuilder()
+                                .WithContent("Đưa tao key vàng tao kick ")
+                                .AddMention(targetMember)
+                                .AppendContent(" cho mà xem!")
+                                .WithTimeToLive(1000 * 60 * 60));
+                        else if (targetMember.Role == ZaloMemberRole.Member)
+                            await e.Message.ReplyAsync(new ZaloMessageBuilder()
+                                .WithContent("Đưa tao key bạc tao kick ")
+                                .AddMention(targetMember)
+                                .AppendContent(" cho mà xem!")
+                                .WithTimeToLive(1000 * 60 * 60));
+                        return;
+                    }
+                    await targetMember.RemoveAsync();
+                }
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đã kick (các) thành viên được đề cập!").WithTimeToLive(10000));
+            }
+            else if (textContent.StartsWith(prefix + "ban "))
+            {
+                if (e.Message.Mentions.Length == 0)
+                {
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
+                    return;
+                }
+                foreach (var mention in e.Message.Mentions.Where(m => !m.IsMentionAll))
+                {
+                    ZaloMember targetMember = await mention.GetMemberAsync(e.Group);
+                    if (targetMember.Role >= e.Author.Role)
+                    {
+                        if (targetMember.Role == ZaloMemberRole.Owner)
+                            await e.Message.ReplyAsync("Key vàng sao mà ban?");
+                        else if (targetMember.Role == ZaloMemberRole.Admin)
+                            await e.Message.ReplyAsync(new ZaloMessageBuilder()
+                                .WithContent("Đưa tao key vàng tao ban ")
+                                .AddMention(targetMember)
+                                .AppendContent(" cho mà xem!")
+                                .WithTimeToLive(1000 * 60 * 60));
+                        else if (targetMember.Role == ZaloMemberRole.Member)
+                            await e.Message.ReplyAsync(new ZaloMessageBuilder()
+                                .WithContent("Đưa tao key bạc tao ban ")
+                                .AddMention(targetMember)
+                                .AppendContent(" cho mà xem!")
+                                .WithTimeToLive(1000 * 60 * 60));
+                        return;
+                    }
+                    await targetMember.BlockAsync();
+                }
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đã ban (các) thành viên được đề cập!").WithTimeToLive(10000));
+            }
+            else if (textContent == prefix + "restart")
+            {
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đang khởi động lại...").WithTimeToLive(10000));
+                await Task.Delay(1000);
+                Process.Start(new ProcessStartInfo(Process.GetCurrentProcess().MainModule!.FileName) { UseShellExecute = true });
+                Environment.Exit(0);
+            }
+            else if (textContent == prefix + "prefix")
+            {
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"Prefix hiện tại: {prefix}").WithTimeToLive(10000));
+            }
+            else if (textContent.StartsWith(prefix + "prefix "))
+            {
+                prefix = textContent.Split(' ')[1][0];
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đã thay đổi prefix!").WithTimeToLive(10000));
+            }
+        }
+
+        static async Task FunCommands(GroupMessageReceivedEventArgs e)
+        {
+            if (!includedGroupIDs.Contains(e.Group.ID) && !e.Message.IsMyOwnMessage)
+                return;
+            string textContent = e.Message.Content[0]?.ToInformationalString() ?? "";
+            if (textContent.StartsWith(prefix + "stickerba ") || textContent == prefix + "stickerba")
+            {
+                string[] strings = textContent.Split(' ');
+                int index = Random.Shared.Next(0, MAX_BA_STICKERS_COUNT) + 1;
+                if (strings.Length > 1)
+                {
+                    if (int.TryParse(strings[1], out int i))
+                        index = i;
+                }
+                await e.Group.SendImageAsStickerAsync(File.ReadAllBytes(@$"Data\BAStickers\ClanChat_Emoji_{index}_En.png"));
+            }
+            else if (textContent == prefix + "sticker" || textContent.StartsWith(prefix + "sticker "))
+            {
+                if (textContent.Split(' ').Length <= 1)
+                {
+                    DirectoryInfo di = new DirectoryInfo(@"Data\Stickers");
+                    if (!di.Exists)
+                        di.Create();
+                    string[] files = di.GetFiles().Select(f => Path.GetFileNameWithoutExtension(f.Name)).ToArray();
+                    string stickers = string.Join("\n", files);
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent(
+                        $"""
+                        {Formatter.Bold(Formatter.FontSize("Danh sách sticker:", 20))}
+                        {Formatter.UnorderedList(stickers)}
+                        """
+                        .Replace("\r", "")
+                    ).WithTimeToLive(300000));
+                    return;
+                }
+                string stickerName = textContent.Split(' ')[1];
+                if (File.Exists(@$"Data\Stickers\{stickerName.ToLowerInvariant()}.png"))
+                    await e.Group.SendImageAsStickerAsync(File.ReadAllBytes(@$"Data\Stickers\{stickerName.ToLowerInvariant()}.png"));
+                else
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy sticker!").WithTimeToLive(10000));
+            }
+            else if (textContent == prefix + "makesticker" || (e.Message.Content[0] is ZaloImageContent imgC && imgC.Title == prefix + "makesticker"))
+            {
+                string link = "";
+                bool isGIF = false;
+                bool isVideo = false;
+                if (e.Message.Content[0] is ZaloImageContent imageContent)
+                {
+                    link = imageContent.ImageLink;
+                    isGIF = imageContent.Action == "recommend.gif";
+                }
+                else if (e.Message.Content[0] is ZaloVideoContent videoContent)
+                {
+                    link = videoContent.VideoLink;
+                    isVideo = true;
+                }
+                else if (e.Message.Quote is not null)
+                {
+                    if (e.Message.Quote.Content is ZaloImageContent quoteImageContent)
+                    {
+                        link = quoteImageContent.ImageLink;
+                        isGIF = quoteImageContent.Action == "recommend.gif";
+                    }
+                    else if (e.Message.Quote.Content is ZaloVideoContent quoteVideoContent)
+                    {
+                        link = quoteVideoContent.VideoLink;
+                        isVideo = true;
+                    }
+                    else if (e.Message.Quote.Content is ZaloFileContent quoteFileContent)
+                    {
+                        if (quoteFileContent.FileExtension == "mp4")
+                        {
+                            link = quoteFileContent.Link;
+                            isVideo = true;
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(link))
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy ảnh!").WithTimeToLive(10000));
+                else
+                {
+                    if (isGIF)
+                        await e.Group.SendWebpImageAsStickerAsync(link);
+                    else if (isVideo)
+                        await e.Group.SendVideoAsStickerAsync(link);
+                    else
+                        await e.Group.SendImageAsStickerAsync(link);
+                }
+            }
+
+            else if (textContent == prefix + "help")
+            {
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"{Formatter.Bold(Formatter.FontSize("Danh sách lệnh:", 20))}\n{Formatter.UnorderedList($"{prefix}stickerba [ID]: Gửi sticker Blue Archive theo ID hoặc ngẫu nhiên\n{prefix}sticker [tên]: Gửi sticker theo tên | {prefix}sticker: Xem danh sách sticker\n{prefix}makesticker: Tạo sticker từ ảnh hoặc video trong tin nhắn hoặc tin nhắn trả lời\n")}".Replace("\r", "")).WithTimeToLive(300000));
+            }
+        }
+
+        static async Task ModerateXiaoGroupAsync(GroupMessageReceivedEventArgs e)
         {
             if (e.Group.ID != xiaoGroupID)
                 return;
@@ -209,7 +325,7 @@ namespace ZaloBot
             if (e.Message.Content[0] is ZaloTextContent textContent && (e.Group.Admins.Any(a => a.ID == e.Author.ID) || e.Group.Owner.ID == e.Author.ID) && !e.IsFromRequest)
             {
                 string content = textContent.Content ?? "";
-                if (content.StartsWith("!khoamom "))
+                if (content.StartsWith(prefix + "khoamom "))
                 {
                     if (e.Message.Mentions.Length == 0)
                     {
@@ -224,7 +340,7 @@ namespace ZaloBot
                     File.WriteAllText("mutedUserIDs", string.Join(',', mutedUserIDs));
                     await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đã khoá mõm (các) thành viên được đề cập!").WithTimeToLive(10000));
                 }
-                else if (content.StartsWith("!mokhoamom "))
+                else if (content.StartsWith(prefix + "mokhoamom "))
                 {
                     if (e.Message.Mentions.Length == 0)
                     {
@@ -242,7 +358,7 @@ namespace ZaloBot
             }
         }
 
-        private static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
+        static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
         {
             if (!includedGroupIDs.Contains(e.Group.ID))
                 return;
@@ -333,7 +449,7 @@ namespace ZaloBot
                 user.DisplayName, 
                 $"Đã không thể quay lại {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}",
                 e.Group.Name + '!', 
-                $"Bị {e.Group.Owner.DisplayName} chặn"
+                $"Bị {e.Actioner?.DisplayName} chặn"
             ]);
             ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder().WithContent($"Thành viên {e.Member.DisplayName} đã bị chặn khỏi {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}!").AddAttachment(ZaloAttachment.FromData("image.png", canvas));
             await e.Group.SendMessageAsync(messageBuilder);
@@ -359,7 +475,7 @@ namespace ZaloBot
                 user.DisplayName,
                 $"Đã bị đá khỏi {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}",
                 e.Group.Name + '!',
-                $"Bị {e.Group.Owner.DisplayName} đuổi"
+                $"Bị {e.Actioner?.DisplayName} đuổi"
             ]);
             ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder().WithContent($"Thành viên {e.Member.DisplayName} đã bị đuổi khỏi {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}!").AddAttachment(ZaloAttachment.FromData("image.png", canvas));
             await e.Group.SendMessageAsync(messageBuilder);
@@ -441,7 +557,7 @@ namespace ZaloBot
             if (string.IsNullOrEmpty(bgUrl))
             {
                 random = Random.Shared.Next(0, maxBgLength) + 1;
-                bg = new MagickImage(@$"Backgrounds\{random}.png");
+                bg = new MagickImage(@$"Data\Backgrounds\{random}.png");
             }
             else
             {
@@ -478,7 +594,7 @@ namespace ZaloBot
                         FontStyle = FontStyleType.Normal,
                         FontWeight = FontWeight.Normal,
                         FillColor = MagickColors.White,
-                        Font = @"Fonts\VNF-Comic Sans.ttf",
+                        Font = @"Data\Fonts\VNF-Comic Sans.ttf",
                         FontFamily = "VNF-Comic Sans"
                     };
                     bg2.Read("caption:" + message, settings);
@@ -495,7 +611,7 @@ namespace ZaloBot
                         FontStyle = FontStyleType.Bold,
                         FontWeight = FontWeight.Bold,
                         FillColor = MagickColors.Yellow,
-                        Font = @"Fonts\Pacifico-Regular.ttf",
+                        Font = @"Data\Fonts\Pacifico-Regular.ttf",
                         FontFamily = "Pacifico"
                     };
                     bg2.Read("caption:" + message, settings);
@@ -512,7 +628,7 @@ namespace ZaloBot
                         FontStyle = FontStyleType.Normal,
                         FontWeight = FontWeight.Normal,
                         FillColor = MagickColors.White,
-                        Font = @"Fonts\VNF-Comic Sans.ttf",
+                        Font = @"Data\Fonts\VNF-Comic Sans.ttf",
                         FontFamily = "VNF-Comic Sans"
                     };
                     bg2.Read("caption:" + message, settings);
@@ -529,7 +645,7 @@ namespace ZaloBot
                         FontStyle = FontStyleType.Bold,
                         FontWeight = FontWeight.Bold,
                         FillColor = MagickColors.Yellow,
-                        Font = @"Fonts\Pacifico-Regular.ttf",
+                        Font = @"Data\Fonts\Pacifico-Regular.ttf",
                         FontFamily = "Pacifico",
                         Defines = new CaptionReadDefines
                         {
@@ -550,7 +666,7 @@ namespace ZaloBot
                         FontStyle = FontStyleType.Bold,
                         FontWeight = FontWeight.Bold,
                         TextGravity = Gravity.South,
-                        Font = @"Fonts\VNF-Comic Sans.ttf",
+                        Font = @"Data\Fonts\VNF-Comic Sans.ttf",
                         FontFamily = "VNF-Comic Sans",
                         FillColor = MagickColors.White
                     };
@@ -621,7 +737,7 @@ namespace ZaloBot
 
         static void InitializeClient()
         {
-            JsonNode node = JsonNode.Parse(File.ReadAllText("credentials.json")) ?? throw new Exception("Missing credentials.json");
+            JsonNode node = JsonNode.Parse(File.ReadAllText(@"Data\credentials.json")) ?? throw new Exception("Missing credentials.json");
             clientBuilder = clientBuilder
                 .WithCredential(new LoginCredential(node["cookies"].Deserialize(SourceGenerationContext.Default.ListZaloCookie) ?? new List<ZaloCookie>(), node["imei"]?.GetValue<string>() ?? "", node["user_agent"]?.GetValue<string>() ?? ""))
                 .SetAPIType(node["type"]?.GetValue<int>() ?? 0)

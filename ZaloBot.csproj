@@ -51,4 +51,13 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Data\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Data\*\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

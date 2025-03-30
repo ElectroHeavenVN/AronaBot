@@ -363,3 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 
 !Properties/PublishProfiles/FolderProfile.pubxml
+Data/credentials.json
+Data/webhooks.txt
