@@ -34,12 +34,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Resources\**" />
-    <EmbeddedResource Remove="Resources\**" />
-    <None Remove="Resources\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
     <PackageReference Include="Magick.NET-Q16-HDRI-AnyCPU" Version="14.5.0" />
     <PackageReference Include="MetadataExtractor" Version="2.8.1" />
