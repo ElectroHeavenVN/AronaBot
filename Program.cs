@@ -16,8 +16,8 @@ namespace ZaloBot
 {
     internal class Program
     {
-        static long[] includedIDs = [1203610066457374544, 8095917403278057918];
-        static long xiaoID = 2516010607529018126;
+        static long[] includedGroupIDs = [1203610066457374544, 8095917403278057918];
+        static long xiaoGroupID = 2516010607529018126;
         static int maxBgLength = 1;
         static ZaloClientBuilder clientBuilder = ZaloClientBuilder.CreateDefault();
         static ZaloClient client;
@@ -196,7 +196,7 @@ namespace ZaloBot
 
         private static async Task ModerateXiaoGroupAsync(GroupMessageReceivedEventArgs e)
         {
-            if (e.Group.ID != xiaoID)
+            if (e.Group.ID != xiaoGroupID)
                 return;
             if (!e.Message.IsMyOwnMessage)
             {
@@ -244,7 +244,7 @@ namespace ZaloBot
 
         private static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
         {
-            if (!includedIDs.Contains(e.Group.ID))
+            if (!includedGroupIDs.Contains(e.Group.ID))
                 return;
             WriteLastMessageID(e.Message.ID);
             string content = "";
@@ -301,7 +301,7 @@ namespace ZaloBot
                 { "username", e.Author.DisplayName },
                 { "avatar_url", e.Author.AvatarLink },
             };
-            if (e.Group.ID == includedIDs[0])
+            if (e.Group.ID == includedGroupIDs[0])
                 await httpClient.PostAsync(webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
@@ -315,14 +315,14 @@ namespace ZaloBot
 
         static async Task EventListeners_MemberBlocked(object sender, MemberBlockedEventArgs e)
         {
-            if (!includedIDs.Contains(e.Group.ID))
+            if (!includedGroupIDs.Contains(e.Group.ID))
                 return;
             string content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} chặn khỏi {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}.";
             JsonObject obj = new JsonObject()
             {
                 {"content", content },
             };
-            if (e.Group.ID == includedIDs[0])
+            if (e.Group.ID == includedGroupIDs[0])
                 await httpClient.PostAsync(webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
@@ -341,14 +341,14 @@ namespace ZaloBot
 
         static async Task EventListeners_MemberRemoved(object sender, MemberRemovedEventArgs e)
         {
-            if (!includedIDs.Contains(e.Group.ID))
+            if (!includedGroupIDs.Contains(e.Group.ID))
                 return;
             string content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} xoá khỏi {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}.";
             JsonObject obj = new JsonObject()
             {
                 {"content", content },
             };
-            if (e.Group.ID == includedIDs[0])
+            if (e.Group.ID == includedGroupIDs[0])
                 await httpClient.PostAsync(webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
@@ -367,14 +367,14 @@ namespace ZaloBot
 
         static async Task EventListeners_MemberLeft(object sender, MemberLeftEventArgs e)
         {
-            if (!includedIDs.Contains(e.Group.ID))
+            if (!includedGroupIDs.Contains(e.Group.ID))
                 return;
             string content = $"-# **{e.Member.DisplayName}** vừa rời khỏi {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}.";
             JsonObject obj = new JsonObject()
             {
                 {"content", content },
             };
-            if (e.Group.ID == includedIDs[0])
+            if (e.Group.ID == includedGroupIDs[0])
                 await httpClient.PostAsync(webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
@@ -393,7 +393,7 @@ namespace ZaloBot
 
         static async Task EventListeners_NewMemberJoined(object sender, MemberJoinedEventArgs e)
         {
-            if (!includedIDs.Contains(e.Group.ID))
+            if (!includedGroupIDs.Contains(e.Group.ID))
                 return;
             string content;
             content = $"-# **{e.Member.DisplayName}** được **{e.Actioner?.DisplayName}** duyệt vào {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}.";
@@ -401,7 +401,7 @@ namespace ZaloBot
             {
                 {"content", content },
             };
-            if (e.Group.ID == includedIDs[0])
+            if (e.Group.ID == includedGroupIDs[0])
                 await httpClient.PostAsync(webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
