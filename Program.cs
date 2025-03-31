@@ -443,7 +443,7 @@ namespace ZaloBot
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             ZaloUser user = await e.Member.GetUserAsync();
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink,
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink,
             [
                 "Vĩnh biệt",
                 user.DisplayName, 
@@ -469,7 +469,7 @@ namespace ZaloBot
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             ZaloUser user = await e.Member.GetUserAsync();
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink,
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink,
             [
                 "Thành viên",
                 user.DisplayName,
@@ -522,7 +522,7 @@ namespace ZaloBot
             else
                 await httpClient.PostAsync(webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             ZaloUser user = await e.Member.GetUserAsync();
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink,
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink,
             [
                 "Chào mừng",
                 user.DisplayName,
