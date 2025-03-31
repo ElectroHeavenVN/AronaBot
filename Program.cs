@@ -2,6 +2,7 @@
 using ImageMagick.Drawing;
 using ImageMagick.Formats;
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -303,10 +304,28 @@ namespace ZaloBot
                         await e.Group.SendImageAsStickerAsync(link);
                 }
             }
-
+            else if (textContent.StartsWith(prefix + "chat ") || textContent == prefix + "chat")
+            {
+                if (textContent == prefix + "chat")
+                {
+                    await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Vui lòng thêm nội dung chat!").WithTimeToLive(10000));
+                    return;
+                }
+                string prompt = textContent.Substring((prefix + "chat ").Length);
+                string response = await CallOpenRouterAPI(prompt);
+                Console.WriteLine(response);
+                List<string> responses = new List<string>();
+                while (response.Length > 0)
+                {
+                    responses.Add(response.Substring(0, Math.Min(3000, response.Length)));
+                    response = response.Substring(Math.Min(3000, response.Length));
+                }
+                foreach (string res in responses)
+                    await e.Message.ReplyAsync(res);
+            }
             else if (textContent == prefix + "help")
             {
-                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"{Formatter.Bold(Formatter.FontSize("Danh sách lệnh:", 20))}\n{Formatter.UnorderedList($"{prefix}stickerba [ID]: Gửi sticker Blue Archive theo ID hoặc ngẫu nhiên\n{prefix}sticker [tên]: Gửi sticker theo tên | {prefix}sticker: Xem danh sách sticker\n{prefix}makesticker: Tạo sticker từ ảnh hoặc video trong tin nhắn hoặc tin nhắn trả lời\n")}".Replace("\r", "")).WithTimeToLive(300000));
+                await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"{Formatter.Bold(Formatter.FontSize("Danh sách lệnh:", 20))}\n{Formatter.UnorderedList($"{prefix}stickerba [ID]: Gửi sticker Blue Archive theo ID hoặc ngẫu nhiên\n{prefix}sticker [tên]: Gửi sticker theo tên | {prefix}sticker: Xem danh sách sticker\n{prefix}makesticker: Tạo sticker từ ảnh hoặc video trong tin nhắn hoặc tin nhắn trả lời\n{prefix}chat [prompt]: Chat với AI")}".Replace("\r", "")).WithTimeToLive(300000));
             }
         }
 
@@ -536,6 +555,40 @@ namespace ZaloBot
                 .AppendContent("!")
                 .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
             await e.Group.SendMessageAsync(messageBuilder);
+        }
+
+        //---------------------------------------------------------------------------------------
+
+        static async Task<string> CallOpenRouterAPI(string prompt, string model = "deepseek/deepseek-chat-v3-0324:free")
+        {
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Post,
+                RequestUri = new Uri("https://openrouter.ai/api/v1/chat/completions"),
+                Headers =
+                {
+                    Authorization = new AuthenticationHeaderValue("Bearer", File.ReadAllText(@"Data\openrouterapikey.txt"))
+                },
+                Content = new StringContent(
+                    //lang=json,strict
+                    $$"""
+                    {
+                        "model": "{{model}}",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": "Bạn đang được gọi từ API, hãy trả lời prompt sau mà không thêm bất kỳ định dạng markdown nào vào phản hồi:\n{{prompt}}"
+                            }
+                        ]
+                    }
+                    """, Encoding.UTF8, "application/json")
+            };
+            HttpResponseMessage response = await httpClient.SendAsync(request);
+            string responseContent = await response.Content.ReadAsStringAsync();
+            JsonArray? arr = JsonNode.Parse(responseContent.Trim().Trim(Environment.NewLine.ToCharArray()))?["choices"]?.AsArray();
+            if (arr is null)
+                return "Tôi không thể trả lời câu hỏi của bạn lúc này, hãy thử lại sau ít phút.";
+            return arr.Last(e => e?["message"]?["role"]?.GetValue<string>() == "assistant")?["message"]?["content"]?.GetValue<string>() ?? "Tôi không thể trả lời câu hỏi của bạn lúc này, hãy thử lại sau ít phút.";
         }
 
         static async Task<byte[]> TryCreateCanvas(string bgUrl, string avatar1Url, string avatar2Url, string[] messages)

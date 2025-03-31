@@ -365,3 +365,4 @@ FodyWeavers.xsd
 !Properties/PublishProfiles/FolderProfile.pubxml
 Data/credentials.json
 Data/webhooks.txt
+Data/openrouterapikey.txt
