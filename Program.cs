@@ -135,15 +135,15 @@ namespace ZaloBot
 
             if (textContent.StartsWith(prefix + "kick "))
             {
-                if (e.Message.Mentions.Length == 0)
+                if (e.GroupMessage.Mentions.Length == 0)
                 {
                     await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
                     return;
                 }
-                foreach (var mention in e.Message.Mentions.Where(m => !m.IsMentionAll))
+                foreach (var mention in e.GroupMessage.Mentions.Where(m => !m.IsMentionAll))
                 {
                     ZaloMember targetMember = await mention.GetMemberAsync(e.Group);
-                    if (targetMember.Role >= e.Author.Role)
+                    if (targetMember.Role >= e.Member.Role)
                     {
                         if (targetMember.Role == ZaloMemberRole.Owner)
                             await e.Message.ReplyAsync("Key vàng sao mà kick?");
@@ -167,15 +167,15 @@ namespace ZaloBot
             }
             else if (textContent.StartsWith(prefix + "ban "))
             {
-                if (e.Message.Mentions.Length == 0)
+                if (e.GroupMessage.Mentions.Length == 0)
                 {
                     await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
                     return;
                 }
-                foreach (var mention in e.Message.Mentions.Where(m => !m.IsMentionAll))
+                foreach (var mention in e.GroupMessage.Mentions.Where(m => !m.IsMentionAll))
                 {
                     ZaloMember targetMember = await mention.GetMemberAsync(e.Group);
-                    if (targetMember.Role >= e.Author.Role)
+                    if (targetMember.Role >= e.Member.Role)
                     {
                         if (targetMember.Role == ZaloMemberRole.Owner)
                             await e.Message.ReplyAsync("Key vàng sao mà ban?");
@@ -201,7 +201,7 @@ namespace ZaloBot
             {
                 await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đang khởi động lại...").WithTimeToLive(10000));
                 await Task.Delay(1000);
-                Process.Start(new ProcessStartInfo(Process.GetCurrentProcess().MainModule!.FileName) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "") { UseShellExecute = true });
                 Environment.Exit(0);
             }
             else if (textContent == prefix + "prefix")
@@ -346,12 +346,12 @@ namespace ZaloBot
                 string content = textContent.Content ?? "";
                 if (content.StartsWith(prefix + "khoamom "))
                 {
-                    if (e.Message.Mentions.Length == 0)
+                    if (e.GroupMessage.Mentions.Length == 0)
                     {
                         await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
                         return;
                     }
-                    foreach (var mention in e.Message.Mentions.Where(m => !m.IsMentionAll))
+                    foreach (var mention in e.GroupMessage.Mentions.Where(m => !m.IsMentionAll))
                     {
                         if (!mutedUserIDs.Contains(mention.UserID))
                             mutedUserIDs.Add(mention.UserID);
@@ -361,12 +361,12 @@ namespace ZaloBot
                 }
                 else if (content.StartsWith(prefix + "mokhoamom "))
                 {
-                    if (e.Message.Mentions.Length == 0)
+                    if (e.GroupMessage.Mentions.Length == 0)
                     {
                         await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
                         return;
                     }
-                    foreach (var mention in e.Message.Mentions.Where(m => !m.IsMentionAll))
+                    foreach (var mention in e.GroupMessage.Mentions.Where(m => !m.IsMentionAll))
                     {
                         if (mutedUserIDs.Contains(mention.UserID))
                             mutedUserIDs.Remove(mention.UserID);
