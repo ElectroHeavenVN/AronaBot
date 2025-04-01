@@ -18,12 +18,12 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <MetricsSupport>false</MetricsSupport>
     <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
-    <OptimizationPreference>Size</OptimizationPreference>
+    <!--<OptimizationPreference>Size</OptimizationPreference>-->
     <RuntimeIdentifier>win-x86</RuntimeIdentifier>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
     <!--<StackTraceSupport>false</StackTraceSupport>-->
     <!--<TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>-->
-    <!--<UseSystemResourceKeys>true</UseSystemResourceKeys>-->
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
