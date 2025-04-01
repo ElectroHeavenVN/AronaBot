@@ -19,6 +19,7 @@
     <MetricsSupport>false</MetricsSupport>
     <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
     <OptimizationPreference>Size</OptimizationPreference>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
     <!--<PublishTrimmed>true</PublishTrimmed>-->
     <!--<StackTraceSupport>false</StackTraceSupport>-->
     <!--<TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>-->

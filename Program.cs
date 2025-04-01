@@ -101,7 +101,7 @@ namespace ZaloBot
         {
             if (!e.Message.IsMyOwnMessage)
                 return;
-            string textContent = e.Message.Content[0]?.ToInformationalString() ?? "";
+            string textContent = e.Message.Content[0]?.Text ?? "";
             if (textContent == prefix + "systeminfo")
             {
                 PerformanceCounter counter = new PerformanceCounter("Process", "Working Set - Private", Process.GetCurrentProcess().ProcessName);
@@ -219,7 +219,7 @@ namespace ZaloBot
         {
             if (!includedGroupIDs.Contains(e.Group.ID) && !e.Message.IsMyOwnMessage)
                 return;
-            string textContent = e.Message.Content[0]?.ToInformationalString() ?? "";
+            string textContent = e.Message.Content[0]?.Text ?? "";
             if (textContent.StartsWith(prefix + "stickerba ") || textContent == prefix + "stickerba")
             {
                 string[] strings = textContent.Split(' ');
@@ -389,7 +389,7 @@ namespace ZaloBot
                 string quote = "";
                 if (e.Message.Quote.Content is not null)
                 {
-                    foreach (string s in e.Message.Quote.Content.ToInformationalString().Split('\n'))
+                    foreach (string s in e.Message.Quote.Content.Text.Split('\n'))
                     {
                         quote += $"> -# {s.Trim(nl.ToCharArray())}{nl}";
                     }
@@ -404,7 +404,7 @@ namespace ZaloBot
                 else if (e.Message.Content[0] is ZaloMessageRecalledContent recalledContent)
                     content += $"[Message {recalledContent.RecalledMessageID} recalled]";
                 else
-                    content += e.Message.Content[0]!.ToInformationalString();
+                    content += e.Message.Content[0]!.Text;
 
                 if (e.Message.Content[0] is ZaloImageContent imageContent)
                 {
