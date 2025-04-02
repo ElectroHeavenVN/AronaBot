@@ -339,7 +339,7 @@ namespace ZaloBot
                 {
                     string str = e.Message.Quote.Content.Text;
                     if (str.Length > 20)
-                        str = str.Substring(0, 17).Trim(nl.ToCharArray()) + "...";
+                        str = str.Substring(0, 17).Replace("\r", "").Replace("\n", " ") + "...";
                     quote += $"> -# {str}{nl}";
                 }
                 quote = quote.TrimEnd(nl.ToCharArray());
