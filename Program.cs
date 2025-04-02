@@ -455,8 +455,11 @@ namespace ZaloBot
 
         //---------------------------------------------------------------------------------------
 
-        static async Task<string> CallOpenRouterAPI(string prompt, string model = "deepseek/deepseek-chat-v3-0324:free")
+        static async ValueTask<string> CallOpenRouterAPI(string prompt, string model = "deepseek/deepseek-chat-v3-0324:free")
         {
+            if (prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(word => word.Equals("vps", StringComparison.InvariantCultureIgnoreCase)))
+                return "Tôi không thể trả lời câu hỏi của bạn, hãy hỏi câu hỏi khác.";
+
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
