@@ -337,10 +337,10 @@ namespace ZaloBot
                 string quote = "";
                 if (e.Message.Quote.Content is not null)
                 {
-                    foreach (string s in e.Message.Quote.Content.Text.Split('\n'))
-                    {
-                        quote += $"> -# {s.Trim(nl.ToCharArray())}{nl}";
-                    }
+                    string str = e.Message.Quote.Content.Text;
+                    if (str.Length > 20)
+                        str = str.Substring(0, 17).Trim(nl.ToCharArray()) + "...";
+                    quote += $"> -# {str}{nl}";
                 }
                 quote = quote.TrimEnd(nl.ToCharArray());
                 content += $"> **{e.Message.Quote.AuthorDisplayName}**{nl}{quote}{nl}{nl}";
