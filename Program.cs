@@ -72,6 +72,7 @@ namespace ZaloBot
                 maxBgLength++;
             maxBgLength--;
             Config.LoadConfig();
+            prefix = Config.Instance.DefaultPrefix;
         }
 
         static async Task EventListeners_Disconnected(object sender, GatewayDisconnectedEventArgs args)
@@ -94,8 +95,8 @@ namespace ZaloBot
         {
             if (!e.Message.IsMyOwnMessage)
                 return;
-            string textContent = e.Message.Content[0]?.Text ?? "";
-            if (textContent == prefix + "systeminfo")
+            string command = e.Message.Content[0]?.Text ?? "";
+            if (command == prefix + "systeminfo")
             {
                 PerformanceCounter counter = new PerformanceCounter("Process", "Working Set - Private", Process.GetCurrentProcess().ProcessName);
                 double currentMem = counter.RawValue / 1024d / 1024d;
@@ -112,7 +113,7 @@ namespace ZaloBot
                 double cpuUsage = counter.NextValue();
                 await e.Message.ReplyAsync($"CPU: {cpuUsage:00}%\nRAM: {currentMem:00}MB/{totalMem}MB\nPaged: {currentMemPaged:00}MB/{totalMemPaged}MB");
             }
-            else if (textContent == prefix + "video")
+            else if (command == prefix + "video")
             {
                 if (e.Message.Quote is not null && e.Message.Quote.Content is ZaloFileContent quoteFileContent)
                 {
@@ -126,7 +127,7 @@ namespace ZaloBot
                     await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy video!").WithTimeToLive(10000));
             }
 
-            if (textContent.StartsWith(prefix + "kick "))
+            if (command.StartsWith(prefix + "kick "))
             {
                 if (e.GroupMessage.Mentions.Length == 0)
                 {
@@ -154,7 +155,7 @@ namespace ZaloBot
                 }
                 await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đã kick (các) thành viên được đề cập!").WithTimeToLive(10000));
             }
-            else if (textContent.StartsWith(prefix + "ban "))
+            else if (command.StartsWith(prefix + "ban "))
             {
                 if (e.GroupMessage.Mentions.Length == 0)
                 {
@@ -182,21 +183,30 @@ namespace ZaloBot
                 }
                 await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đã ban (các) thành viên được đề cập!").WithTimeToLive(10000));
             }
-            else if (textContent == prefix + "restart")
+            else if (command == prefix + "restart")
             {
                 await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Đang khởi động lại...").WithTimeToLive(10000));
                 await Task.Delay(1000);
                 Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "") { UseShellExecute = true });
                 Environment.Exit(0);
             }
-            else if (textContent == prefix + "prefix")
+            else if (command == prefix + "prefix")
             {
                 await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"Prefix hiện tại: {prefix}").WithTimeToLive(10000));
             }
-            else if (textContent.StartsWith(prefix + "prefix "))
+            else if (command.StartsWith(prefix + "prefix "))
             {
-                prefix = textContent.Split(' ')[1];
+                prefix = command.Split(' ')[1];
                 await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent($"Đã thay đổi prefix thành {prefix} !").WithTimeToLive(10000));
+            }
+            else if (command == prefix + "reload")
+            {
+                string oldPrefix = prefix;
+                LoadData();
+                if (Config.Instance.DefaultPrefix != oldPrefix)
+                    await e.Message.ReplyAsync("Đã tải lại cấu hình!\nPrefix mới: " + Config.Instance.DefaultPrefix);
+                else
+                    await e.Message.ReplyAsync("Đã tải lại cấu hình!");
             }
         }
 
@@ -297,6 +307,7 @@ namespace ZaloBot
                     return;
                 }
                 string prompt = textContent.Substring((prefix + "chat ").Length);
+                Console.WriteLine("Prompt: " + prompt);
                 string response = await CallOpenRouterAPI(prompt);
                 Console.WriteLine(response);
                 List<string> responses = new List<string>();
