@@ -212,7 +212,7 @@ namespace ZaloBot
 
         static async Task FunCommands(GroupMessageReceivedEventArgs e)
         {
-            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID) && !e.Message.IsMyOwnMessage)
                 return;
             string textContent = e.Message.Content[0]?.Text ?? "";
             if (textContent.StartsWith(prefix + "stickerba ") || textContent == prefix + "stickerba")
