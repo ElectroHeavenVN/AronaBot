@@ -22,7 +22,7 @@ namespace ZaloBot
         public string OpenRouterAPIKey { get; set; } = "";
 
         [JsonPropertyName("IDNhomKichHoat")]
-        public long[] EnabledGroupIDs = [];
+        public long[] EnabledGroupIDs { get; set; } = [];
 
         [JsonPropertyName("BannerChaoMung")]
         public string WelcomeBannerMessage { get; set; } = "";
