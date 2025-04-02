@@ -4,6 +4,7 @@ using ZepLaoSharp.Auth;
 namespace ZaloBot
 {
     [JsonSerializable(typeof(List<ZaloCookie>))]
+    [JsonSerializable(typeof(Config))]
     internal partial class SourceGenerationContext : JsonSerializerContext
     {
     }
