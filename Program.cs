@@ -19,12 +19,27 @@ namespace ZaloBot
     {
         static readonly int MAX_BA_STICKERS_COUNT = 144;
 
-        static int maxBgLength = 1;
         static ZaloClientBuilder clientBuilder = ZaloClientBuilder.CreateDefault();
         static ZaloClient client;
         static HttpClient httpClient = new HttpClient();
         static object locker = new object();
         static string prefix = ",";
+
+        static char[] accentChars =
+        [
+            'à', 'á', 'ả', 'ã', 'ạ',
+            'ă', 'ằ', 'ắ', 'ẳ', 'ẵ', 'ặ',
+            'â', 'ầ', 'ấ', 'ẩ', 'ẫ', 'ậ',
+            'đ', 'è', 'é', 'ẻ', 'ẽ', 'ẹ',
+            'ê', 'ề', 'ế', 'ể', 'ễ', 'ệ',
+            'ì', 'í', 'ỉ', 'ĩ', 'ị',
+            'ò', 'ó', 'ỏ', 'õ', 'ọ',
+            'ô', 'ồ', 'ố', 'ổ', 'ỗ', 'ộ',
+            'ơ', 'ờ', 'ớ', 'ở', 'ỡ', 'ợ',
+            'ù', 'ú', 'ủ', 'ũ', 'ụ',
+            'ư', 'ừ', 'ứ', 'ử', 'ữ', 'ự',
+            'ỳ', 'ý', 'ỷ', 'ỹ', 'ỵ',
+        ];
 
         [DllImport("kernel32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -67,10 +82,6 @@ namespace ZaloBot
 
         static void LoadData()
         {
-            maxBgLength = 1;
-            while (File.Exists(@$"Data\Backgrounds\{maxBgLength}.png"))
-                maxBgLength++;
-            maxBgLength--;
             Config.LoadConfig();
             prefix = Config.Instance.DefaultPrefix;
         }
@@ -495,6 +506,10 @@ namespace ZaloBot
 
         static async Task<byte[]> TryCreateCanvas(string bgUrl, string avatar1Url, string avatar2Url, string[] messages)
         {
+            for (int i = 0; i < messages.Length; i++)
+            {
+                messages[i] = ReplaceUnicodeChars(messages[i]);
+            }
             try
             {
                 return await CreateCanvas(bgUrl, avatar1Url, avatar2Url, messages);
@@ -508,17 +523,14 @@ namespace ZaloBot
         static async Task<byte[]> CreateCanvas(string bgUrl, string avatar1Url, string avatar2Url, string[] messages)
         {
             MagickImage bg;
-            int random;
             if (string.IsNullOrEmpty(bgUrl))
             {
-                random = Random.Shared.Next(0, maxBgLength) + 1;
-                bg = new MagickImage(@$"Data\Backgrounds\{random}.png");
+                string[] backgrounds = Directory.GetFiles(@"Data\Backgrounds\", "*.png");
+                string bgFilePath = backgrounds[Random.Shared.Next(0, backgrounds.Length)];
+                bg = new MagickImage(bgFilePath);
             }
             else
-            {
                 bg = new MagickImage(await httpClient.GetByteArrayAsync(bgUrl));
-                random = 0;
-            }
             CropFill(bg, 900, 300);
             bg.BrightnessContrast(new Percentage(-25), new Percentage(0));
             bg.HasAlpha = false;
@@ -688,6 +700,19 @@ namespace ZaloBot
             image.Composite(mask, CompositeOperator.CopyAlpha);
             mask.Dispose();
             return image;
+        }
+
+        static string ReplaceUnicodeChars(string text)
+        {
+            char[] chars = text.ToCharArray();
+            for (int i = 0; i < chars.Length; i++)
+            {
+                if (chars[i] >= ' ' && chars[i] <= '~')
+                    continue;
+                if (!accentChars.Contains(chars[i].ToString().ToLowerInvariant()[0]))
+                    chars[i] = '?';
+            }
+            return new string(chars);
         }
 
         static void InitializeClient()
