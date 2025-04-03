@@ -67,7 +67,7 @@ namespace ZaloBot
 
         static void LoadData()
         {
-            maxBgLength = 0;
+            maxBgLength = 1;
             while (File.Exists(@$"Data\Backgrounds\{maxBgLength}.png"))
                 maxBgLength++;
             maxBgLength--;
@@ -327,6 +327,9 @@ namespace ZaloBot
 
         static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
         {
+#if DEBUG
+            return;
+#endif
             if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
             WriteLastMessageID(e.Message.ID);
@@ -337,7 +340,7 @@ namespace ZaloBot
                 string quote = "";
                 if (e.Message.Quote.Content is not null)
                 {
-                    string str = e.Message.Quote.Content.Text;
+                    string str = e.Message.Quote.Content.ToInformationalString();
                     if (str.Length > 20)
                         str = str.Substring(0, 17).Replace("\r", "").Replace("\n", " ") + "...";
                     quote += $"> -# {str}{nl}";
@@ -398,7 +401,7 @@ namespace ZaloBot
 
         static async Task EventListeners_MemberBlocked(object sender, MemberBlockedEventArgs e)
         {
-            if (!Config.Instance.EnabledGroupIDs.Any(id => e.Group.ID == id))
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.BanMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
@@ -406,14 +409,14 @@ namespace ZaloBot
                 messages[messages.Length - 1] = "";
             byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
             ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.BanMemberMessage, e.Member.Mention, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .WithContent(string.Format(Config.Instance.BanMemberMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
                 .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
             await e.Group.SendMessageAsync(messageBuilder);
         }
 
         static async Task EventListeners_MemberRemoved(object sender, MemberRemovedEventArgs e)
         {
-            if (!Config.Instance.EnabledGroupIDs.Any(id => e.Group.ID == id))
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.KickMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
@@ -421,26 +424,26 @@ namespace ZaloBot
                 messages[messages.Length - 1] = "";
             byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
             ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.KickMemberMessage, e.Member.Mention, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .WithContent(string.Format(Config.Instance.KickMemberMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
                 .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
             await e.Group.SendMessageAsync(messageBuilder);
         }
 
         static async Task EventListeners_MemberLeft(object sender, MemberLeftEventArgs e)
         {
-            if (!Config.Instance.EnabledGroupIDs.Any(id => e.Group.ID == id))
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.LeaveBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name).Split('\n');
             byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink, messages);
             await e.Group.SendMessageAsync(new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.LeaveMessage, e.Member.Mention, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .WithContent(string.Format(Config.Instance.LeaveMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
                 .AddAttachment(ZaloAttachment.FromData("image.png", canvas)));
         }
 
         static async Task EventListeners_NewMemberJoined(object sender, MemberJoinedEventArgs e)
         {
-            if (!Config.Instance.EnabledGroupIDs.Any(id => e.Group.ID == id))
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.WelcomeBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
@@ -665,8 +668,8 @@ namespace ZaloBot
                 newWidth = bg.Width * height / bg.Height;
             }
             bg.Resize(newWidth, newHeight);
-            int x = (int)((bg.Width - width) / 2);
-            int y = (int)((bg.Height - height) / 2);
+            int x = (int)(Math.Abs(bg.Width - (int)width) / 2);
+            int y = (int)(Math.Abs(bg.Height - (int)height) / 2);
             bg.Crop(new MagickGeometry(x, y, width, height));
         }
 
