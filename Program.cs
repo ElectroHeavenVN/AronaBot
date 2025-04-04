@@ -462,7 +462,7 @@ namespace ZaloBot
                 messages[messages.Length - 1] = "";
             byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
             ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.WelcomeMessage, e.Member.Mention, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .WithContent(string.Format(Config.Instance.WelcomeMessage, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Member.Mention))
                 .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
             await e.Group.SendMessageAsync(messageBuilder);
         }

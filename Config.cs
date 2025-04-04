@@ -21,6 +21,9 @@ namespace ZaloBot
         [JsonPropertyName("OpenRouterAPIKey")]
         public string OpenRouterAPIKey { get; set; } = "";
 
+        [JsonPropertyName("IDAdmin")]
+        public long[] AdminIDs { get; set; } = [];
+
         [JsonPropertyName("IDNhomKichHoat")]
         public long[] EnabledGroupIDs { get; set; } = [];
 
