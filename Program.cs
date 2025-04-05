@@ -352,8 +352,8 @@ namespace ZaloBot
                 if (e.Message.Quote.Content is not null)
                 {
                     string str = e.Message.Quote.Content.ToInformationalString();
-                    if (str.Length > 20)
-                        str = str.Substring(0, 17).Replace("\r", "").Replace("\n", " ") + "...";
+                    if (str.Length > 40)
+                        str = str.Substring(0, 37).Replace("\r", "").Replace("\n", " ") + "...";
                     quote += $"> -# {str}{nl}";
                 }
                 quote = quote.TrimEnd(nl.ToCharArray());
@@ -395,12 +395,12 @@ namespace ZaloBot
             JsonObject obj = new JsonObject()
             {
                 {"content", content },
-                { "username", e.Author.DisplayName },
-                { "avatar_url", e.Author.AvatarLink },
+                { "username", e.Member.DisplayName },
+                { "avatar_url", e.Member.AvatarLink },
             };
             if (e.Group.ID == Config.Instance.EnabledGroupIDs[0])
                 await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
-            else
+            else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
                 await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
         }
 
