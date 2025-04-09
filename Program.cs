@@ -86,13 +86,13 @@ namespace ZaloBot
             prefix = Config.Instance.DefaultPrefix;
         }
 
-        static async Task EventListeners_Disconnected(object sender, GatewayDisconnectedEventArgs args)
+        static async Task EventListeners_Disconnected(ZaloClient client, GatewayDisconnectedEventArgs args)
         {
             await Task.Delay(60000);
-            await ((ZaloClient)sender).ConnectAsync();
+            await client.ConnectAsync();
         }
 
-        static async Task EventListeners_GroupMessageReceived(object sender, GroupMessageReceivedEventArgs e)
+        static async Task EventListeners_GroupMessageReceived(ZaloClient client, GroupMessageReceivedEventArgs e)
         {
             if (!e.IsFromRequest)
             {
@@ -336,11 +336,75 @@ namespace ZaloBot
             }
         }
 
+        static void WriteLastMessageID(long messageID)
+        {
+            lock (locker)
+                File.WriteAllText("lastMessageID", messageID.ToString());
+        }
+
+        static async Task EventListeners_MemberBlocked(ZaloClient client, MemberBlockedEventArgs e)
+        {
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
+                return;
+            await ForwardGroupEventsToDiscord(e);
+            ZaloUser user = await e.Member.GetUserAsync();
+            string[] messages = string.Format(Config.Instance.BanMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
+            if (e.Actioner is null)
+                messages[messages.Length - 1] = "";
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
+            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
+                .WithContent(string.Format(Config.Instance.BanMemberMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
+            await e.Group.SendMessageAsync(messageBuilder);
+        }
+
+        static async Task EventListeners_MemberRemoved(ZaloClient client, MemberRemovedEventArgs e)
+        {
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
+                return;
+            await ForwardGroupEventsToDiscord(e);
+            ZaloUser user = await e.Member.GetUserAsync();
+            string[] messages = string.Format(Config.Instance.KickMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
+            if (e.Actioner is null)
+                messages[messages.Length - 1] = "";
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
+            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
+                .WithContent(string.Format(Config.Instance.KickMemberMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
+            await e.Group.SendMessageAsync(messageBuilder);
+        }
+
+        static async Task EventListeners_MemberLeft(ZaloClient client, MemberLeftEventArgs e)
+        {
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
+                return;
+            await ForwardGroupEventsToDiscord(e);
+            ZaloUser user = await e.Member.GetUserAsync();
+            string[] messages = string.Format(Config.Instance.LeaveBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name).Split('\n');
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink, messages);
+            await e.Group.SendMessageAsync(new ZaloMessageBuilder()
+                .WithContent(string.Format(Config.Instance.LeaveMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
+                .AddAttachment(ZaloAttachment.FromData("image.png", canvas)));
+        }
+
+        static async Task EventListeners_NewMemberJoined(ZaloClient client, MemberJoinedEventArgs e)
+        {
+            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
+                return;
+            await ForwardGroupEventsToDiscord(e);
+            ZaloUser user = await e.Member.GetUserAsync();
+            string[] messages = string.Format(Config.Instance.WelcomeBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
+            if (e.Actioner is null)
+                messages[messages.Length - 1] = "";
+            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
+            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
+                .WithContent(string.Format(Config.Instance.WelcomeMessage, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Member.Mention))
+                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
+            await e.Group.SendMessageAsync(messageBuilder);
+        }
+
         static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
         {
-#if DEBUG
-            return;
-#endif
             if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
             WriteLastMessageID(e.Message.ID);
@@ -404,67 +468,31 @@ namespace ZaloBot
                 await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
         }
 
-        static void WriteLastMessageID(long messageID)
+        static async Task ForwardGroupEventsToDiscord(GroupEventsReceivedEventArgs e)
         {
-            lock (locker)
-                File.WriteAllText("lastMessageID", messageID.ToString());
-        }
-
-        static async Task EventListeners_MemberBlocked(object sender, MemberBlockedEventArgs e)
-        {
-            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                return;
-            ZaloUser user = await e.Member.GetUserAsync();
-            string[] messages = string.Format(Config.Instance.BanMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
-            if (e.Actioner is null)
-                messages[messages.Length - 1] = "";
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
-            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.BanMemberMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
-                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
-            await e.Group.SendMessageAsync(messageBuilder);
-        }
-
-        static async Task EventListeners_MemberRemoved(object sender, MemberRemovedEventArgs e)
-        {
-            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                return;
-            ZaloUser user = await e.Member.GetUserAsync();
-            string[] messages = string.Format(Config.Instance.KickMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
-            if (e.Actioner is null)
-                messages[messages.Length - 1] = "";
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
-            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.KickMemberMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
-                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
-            await e.Group.SendMessageAsync(messageBuilder);
-        }
-
-        static async Task EventListeners_MemberLeft(object sender, MemberLeftEventArgs e)
-        {
-            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                return;
-            ZaloUser user = await e.Member.GetUserAsync();
-            string[] messages = string.Format(Config.Instance.LeaveBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name).Split('\n');
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink, messages);
-            await e.Group.SendMessageAsync(new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.LeaveMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
-                .AddAttachment(ZaloAttachment.FromData("image.png", canvas)));
-        }
-
-        static async Task EventListeners_NewMemberJoined(object sender, MemberJoinedEventArgs e)
-        {
-            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                return;
-            ZaloUser user = await e.Member.GetUserAsync();
-            string[] messages = string.Format(Config.Instance.WelcomeBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
-            if (e.Actioner is null)
-                messages[messages.Length - 1] = "";
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
-            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.WelcomeMessage, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Member.Mention))
-                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
-            await e.Group.SendMessageAsync(messageBuilder);
+            string content = "";
+            string groupType = e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm";
+            if (e is MemberJoinedEventArgs)
+            {
+                if (e.Actioner is not null)
+                    content = $"-# **{e.Member.DisplayName}** được **{e.Actioner.DisplayName}** duyệt vào {groupType}.";
+                else 
+                    content = $"-# **{e.Member.DisplayName}** vừa tham gia {groupType}.";
+            }
+            else if (e is MemberLeftEventArgs)
+                content = $"-# **{e.Member.DisplayName}** vừa rời khỏi {groupType}.";
+            else if (e is MemberRemovedEventArgs)
+                content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} xoá khỏi {groupType}.";
+            else if (e is MemberBlockedEventArgs)
+                content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} chặn khỏi {groupType}.";
+            JsonObject obj = new JsonObject()
+            {
+                {"content", content },
+            };
+            if (e.Group.ID == Config.Instance.EnabledGroupIDs[0])
+                await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+            else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
+                await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
         }
 
         //---------------------------------------------------------------------------------------
