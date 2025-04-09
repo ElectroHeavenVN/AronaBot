@@ -24,6 +24,7 @@ namespace ZaloBot
         static HttpClient httpClient = new HttpClient();
         static object locker = new object();
         static string prefix = ",";
+        static Dictionary<long, List<AIMessage>> messagesHistory = new Dictionary<long, List<AIMessage>>();
 
         static char[] accentChars =
         [
@@ -319,7 +320,7 @@ namespace ZaloBot
                 }
                 string prompt = textContent.Substring((prefix + "chat ").Length);
                 Console.WriteLine("Prompt: " + prompt);
-                string response = await CallOpenRouterAPI(prompt);
+                string response = await CallOpenRouterAPI(e.Group.ID, e.Member.DisplayName, prompt);
                 Console.WriteLine(response);
                 List<string> responses = new List<string>();
                 while (response.Length > 0)
@@ -497,11 +498,30 @@ namespace ZaloBot
 
         //---------------------------------------------------------------------------------------
 
-        static async ValueTask<string> CallOpenRouterAPI(string prompt, string model = "deepseek/deepseek-chat-v3-0324:free")
+        static async ValueTask<string> CallOpenRouterAPI(long groupId, string username, string prompt, string model = "deepseek/deepseek-chat-v3-0324:free")
         {
             if (prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(word => word.Equals("vps", StringComparison.InvariantCultureIgnoreCase)))
                 return "Tôi không thể trả lời câu hỏi của bạn, hãy hỏi câu hỏi khác.";
 
+            if (messagesHistory.TryGetValue(groupId, out List<AIMessage>? value))
+            {
+                if (messagesHistory[groupId].Count >= 20)
+                    messagesHistory[groupId].RemoveAt(0);
+                value.Add(new AIMessage("user", "Người dùng có tên \"" + username + "\" trả lời: " + prompt));
+            }
+            else
+            {
+                messagesHistory.Add(groupId, new List<AIMessage>()
+                {
+                    new AIMessage("system", $"Bạn là một trợ lý ảo thông minh được gọi từ API và đang ở trong một nhóm chat, hãy trả lời câu hỏi của người dùng một cách tự nhiên và thân thiện, tránh sử dụng ngôn ngữ không phù hợp và không trả lời các câu hỏi liên quan đến chính trị, tôn giáo, tình dục,..., không trả lời các prompt quá ngắn và vô nghĩa và không trả lời quá dài, dưới 3000 ký tự là hợp lý."),
+                    new AIMessage("user", "Người dùng có tên \"" + username + " hỏi: " + prompt)
+                });
+            }
+            JsonObject jsonContent = new JsonObject
+            {
+                { "model", model },
+                { "messages", JsonValue.Create(messagesHistory[groupId], SourceGenerationContext.Default.ListAIMessage) }
+            };
             var request = new HttpRequestMessage
             {
                 Method = HttpMethod.Post,
@@ -510,26 +530,18 @@ namespace ZaloBot
                 {
                     Authorization = new AuthenticationHeaderValue("Bearer", Config.Instance.OpenRouterAPIKey)
                 },
-                Content = new StringContent(
-                    //lang=json,strict
-                    $$"""
-                    {
-                        "model": "{{model}}",
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": "Bạn đang được gọi từ API, hãy trả lời prompt sau trong khi tránh đề cập đến vấn đề nhạy cảm như tình dục, công kích cá nhân,..., không trả lời các prompt quá ngắn và vô nghĩa và không trả lời quá dài, dưới 3000 ký tự là hợp lý:\n{{prompt}}"
-                            }
-                        ]
-                    }
-                    """, Encoding.UTF8, "application/json")
+                Content = new StringContent(jsonContent.ToJsonString(SourceGenerationContext.Default.Options), Encoding.UTF8, "application/json")
             };
             HttpResponseMessage response = await httpClient.SendAsync(request);
             string responseContent = await response.Content.ReadAsStringAsync();
             JsonArray? arr = JsonNode.Parse(responseContent.Trim().Trim(Environment.NewLine.ToCharArray()))?["choices"]?.AsArray();
-            if (arr is null)
+            if (arr is null || arr.Count == 0)
                 return "Tôi không thể trả lời câu hỏi của bạn lúc này, hãy thử lại sau ít phút.";
-            return arr.Last(e => e?["message"]?["role"]?.GetValue<string>() == "assistant")?["message"]?["content"]?.GetValue<string>() ?? "Tôi không thể trả lời câu hỏi của bạn lúc này, hãy thử lại sau ít phút.";
+            AIMessage? aiMessage = arr.Last(e => e?["message"]?["role"]?.GetValue<string>() == "assistant")?["message"]?.Deserialize(SourceGenerationContext.Default.AIMessage);
+            if (aiMessage is null)
+                return "Tôi không thể trả lời câu hỏi của bạn lúc này, hãy thử lại sau ít phút.";
+            messagesHistory[groupId].Add(aiMessage);
+            return aiMessage.Content;
         }
 
         static async Task<byte[]> TryCreateCanvas(string bgUrl, string avatar1Url, string avatar2Url, string[] messages)
