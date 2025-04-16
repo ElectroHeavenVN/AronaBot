@@ -438,17 +438,46 @@ namespace ZaloBot
         static async Task EventListeners_NewMemberJoined(ZaloClient client, MemberJoinedEventArgs e)
         {
             if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                return;
-            await ForwardGroupEventsToDiscord(e);
-            ZaloUser user = await e.Member.GetUserAsync();
-            string[] messages = string.Format(Config.Instance.WelcomeBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
-            if (e.Actioner is null)
-                messages[messages.Length - 1] = "";
-            byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
-            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
-                .WithContent(string.Format(Config.Instance.WelcomeMessage, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Member.Mention))
-                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
-            await e.Group.SendMessageAsync(messageBuilder);
+            {
+                if (e.Member.ID != client.CurrentUser!.ID)
+                    return;
+                if (e.Group.Setting.OnlyAdminsCanSendMessages)
+                    return;
+                ZaloUser user = client.CurrentUser;
+                string groupType = e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm";
+                string[] messages =
+                    $"""
+                        Chào mọi người trong {groupType}!
+                        {user.DisplayName}
+                        Vừa tham gia {groupType}
+                        {e.Group.Name}!
+                        Duyệt bởi {e.Actioner?.DisplayName ?? ""}
+                        """
+                    .Replace("\r", "").Split('\n');
+                if (e.Actioner is null)
+                    messages[messages.Length - 1] = "";
+                byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
+                string content = $"Chào mọi người, tôi vừa mới tham gia {(e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm")}!";
+                if (e.Actioner is not null)
+                    content += $" Cảm ơn {(e.Member.Role == ZaloMemberRole.Admin ? "Key bạc " : (e.Member.Role == ZaloMemberRole.Owner ? "Key vàng " : ""))}{e.Actioner.Mention} đã duyệt tôi!";
+                ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
+                    .WithContent(content)
+                    .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
+                await e.Group.SendMessageAsync(messageBuilder);
+            }
+            else
+            {
+                await ForwardGroupEventsToDiscord(e);
+                ZaloUser user = await e.Member.GetUserAsync();
+                string[] messages = string.Format(Config.Instance.WelcomeBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
+                if (e.Actioner is null)
+                    messages[messages.Length - 1] = "";
+                byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Actioner?.AvatarLink ?? e.Group.AvatarLink, messages);
+                ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
+                    .WithContent(string.Format(Config.Instance.WelcomeMessage, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Member.Mention))
+                    .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
+                await e.Group.SendMessageAsync(messageBuilder);
+            }
         }
 
         static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
