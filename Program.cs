@@ -12,6 +12,7 @@ using ZepLaoSharp.Auth;
 using ZepLaoSharp.Entities;
 using ZepLaoSharp.Events;
 using ZepLaoSharp.FFMpeg;
+using static ZaloBot.NativeMethods;
 
 namespace ZaloBot
 {
@@ -42,10 +43,6 @@ namespace ZaloBot
             'ư', 'ừ', 'ứ', 'ử', 'ữ', 'ự',
             'ỳ', 'ý', 'ỷ', 'ỹ', 'ỵ',
         ];
-
-        [DllImport("kernel32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetPhysicallyInstalledSystemMemory(out long TotalMemoryInKilobytes);
 
         static async Task Main(string[] args)
         {
@@ -121,17 +118,16 @@ namespace ZaloBot
                     PerformanceCounter counter = new PerformanceCounter("Process", "Working Set - Private", Process.GetCurrentProcess().ProcessName);
                     double currentMem = counter.RawValue / 1024d / 1024d;
                     counter.Dispose();
-                    double currentMemPaged = Process.GetCurrentProcess().PrivateMemorySize64 / 1024d / 1024d;
-                    counter = new PerformanceCounter("Memory", "% Committed Bytes In Use");
-                    long totalMemPaged = counter.RawValue / 1024 / 1024;
-                    counter.Dispose();
+                    double currentMemPaged = Process.GetCurrentProcess().PrivateMemorySize64 / 1024f / 1024f;
+                    var pInfo = GetPerformanceInfo();
                     GetPhysicallyInstalledSystemMemory(out long totalMem);
                     totalMem = totalMem / 1024;
+                    double totalMemPaged = pInfo.CommitTotalPages * pInfo.PageSizeBytes / 1024f / 1024f + totalMem;
                     counter = new PerformanceCounter("Process", "% Processor Time", Process.GetCurrentProcess().ProcessName);
                     counter.NextValue();
                     await Task.Delay(200);
                     double cpuUsage = counter.NextValue();
-                    await e.Message.ReplyAsync($"CPU: {cpuUsage:00}%\nRAM: {currentMem:00}MB/{totalMem}MB\nPaged: {currentMemPaged:00}MB/{totalMemPaged}MB");
+                    await e.Message.ReplyAsync($"CPU: {cpuUsage:00}%\nRAM: {currentMem:00}MB/{totalMem}MB\nPaged: {currentMemPaged:00}MB/{totalMemPaged:00}MB");
                 }
                 else if (command == p + "video")
                 {
@@ -147,7 +143,7 @@ namespace ZaloBot
                         await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy video!").WithTimeToLive(10000));
                 }
 
-                if (command.StartsWith(p + "kick "))
+                else if (command.StartsWith(p + "kick "))
                 {
                     if (e.GroupMessage.Mentions.Length == 0)
                         await e.Message.ReplyAsync(new ZaloMessageBuilder().WithContent("Không tìm thấy thành viên được đề cập!").WithTimeToLive(10000));
@@ -230,6 +226,8 @@ namespace ZaloBot
                     else
                         await e.Message.ReplyAsync("Đã tải lại cấu hình!");
                 }
+                else
+                    result = false;
             }
             catch (Exception ex)
             {
@@ -255,7 +253,7 @@ namespace ZaloBot
                 result = false;
             try
             {
-                if (command == '@' + client.CurrentUser?.DisplayName + " prefix")
+                if ((command == '@' + client.CurrentUser?.DisplayName + " prefix") || (command == "prefix" && e.Message.IsMyOwnMessage))
                 {
                     await e.Message.ReplyAsync("Prefix: " + Config.Instance.DefaultPrefix);
                     return true;
@@ -624,7 +622,8 @@ namespace ZaloBot
             AIMessage? aiMessage = arr.Last(e => e?["message"]?["role"]?.GetValue<string>() == "assistant")?["message"]?.Deserialize(SourceGenerationContext.Default.AIMessage);
             if (aiMessage is null)
                 return "Tôi không thể trả lời câu hỏi của bạn lúc này, hãy thử lại sau ít phút.";
-            messagesHistory[groupId].Add(aiMessage);
+            if (messagesHistory.TryGetValue(groupId, out List<AIMessage>? list))
+                list.Add(aiMessage);
             return aiMessage.Content;
         }
 

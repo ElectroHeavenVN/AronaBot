@@ -39,8 +39,9 @@
     <PackageReference Include="Magick.NET-Q16-HDRI-AnyCPU" Version="14.6.0" />
     <PackageReference Include="MetadataExtractor" Version="2.8.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
-    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.3" />
-    <PackageReference Include="System.Text.Json" Version="9.0.3" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.4" />
+    <PackageReference Include="System.Text.Json" Version="9.0.4" />
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,6 +60,10 @@
     <None Update="Data\*\*.*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="TagLibSharp" />
   </ItemGroup>
 
 </Project>
