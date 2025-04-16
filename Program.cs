@@ -25,6 +25,7 @@ namespace ZaloBot
         static object locker = new object();
         static string prefix = ",";
         static Dictionary<long, List<AIMessage>> messagesHistory = new Dictionary<long, List<AIMessage>>();
+        static SemaphoreSlim discordWebhookSemaphore = new SemaphoreSlim(1, 1);
 
         static char[] accentChars =
         [
@@ -100,7 +101,8 @@ namespace ZaloBot
                 if (!await HandleAdminCommands(e))
                     await HandleGroupCommands(e);
             }
-            await ForwardMessagesToDiscord(e);
+            if (Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
+                await ForwardMessagesToDiscord(e);
         }
 
         static async Task<bool> HandleAdminCommands(GroupMessageReceivedEventArgs e)
@@ -453,9 +455,11 @@ namespace ZaloBot
 
         static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
         {
-            if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                return;
+#if DEBUG
+            return;
+#endif
             WriteLastMessageID(e.Message.ID);
+            await discordWebhookSemaphore.WaitAsync();
             string content = "";
             string nl = Environment.NewLine;
             if (e.Message.Quote is not null)
@@ -519,10 +523,16 @@ namespace ZaloBot
                 await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
                 await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+            await Task.Delay(500);
+            discordWebhookSemaphore.Release();
         }
 
         static async Task ForwardGroupEventsToDiscord(GroupEventsReceivedEventArgs e)
         {
+#if DEBUG
+            return;
+#endif
+            await discordWebhookSemaphore.WaitAsync();
             string content = "";
             string groupType = e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm";
             if (e is MemberJoinedEventArgs)
@@ -546,6 +556,8 @@ namespace ZaloBot
                 await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
             else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
                 await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+            await Task.Delay(500);
+            discordWebhookSemaphore.Release();
         }
 
         //---------------------------------------------------------------------------------------
