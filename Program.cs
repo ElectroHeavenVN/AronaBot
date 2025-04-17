@@ -99,7 +99,7 @@ namespace ZaloBot
                     await HandleGroupCommands(e);
             }
             if (Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
-                await ForwardMessagesToDiscord(e);
+                _ = ForwardMessagesToDiscord(e).ConfigureAwait(false);
         }
 
         static async Task<bool> HandleAdminCommands(GroupMessageReceivedEventArgs e)
@@ -394,7 +394,7 @@ namespace ZaloBot
         {
             if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
-            await ForwardGroupEventsToDiscord(e);
+            _ = ForwardGroupEventsToDiscord(e).ConfigureAwait(false);
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.BanMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
             if (e.Actioner is null)
@@ -410,7 +410,7 @@ namespace ZaloBot
         {
             if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
-            await ForwardGroupEventsToDiscord(e);
+            _ = ForwardGroupEventsToDiscord(e).ConfigureAwait(false);
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.KickMemberBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
             if (e.Actioner is null)
@@ -426,7 +426,7 @@ namespace ZaloBot
         {
             if (!Config.Instance.EnabledGroupIDs.Contains(e.Group.ID))
                 return;
-            await ForwardGroupEventsToDiscord(e);
+            _ = ForwardGroupEventsToDiscord(e).ConfigureAwait(false);
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.LeaveBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name).Split('\n');
             byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink, messages);
@@ -467,7 +467,7 @@ namespace ZaloBot
             }
             else
             {
-                await ForwardGroupEventsToDiscord(e);
+                _ = ForwardGroupEventsToDiscord(e).ConfigureAwait(false);
                 ZaloUser user = await e.Member.GetUserAsync();
                 string[] messages = string.Format(Config.Instance.WelcomeBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name, e.Actioner?.DisplayName ?? "").Split('\n');
                 if (e.Actioner is null)

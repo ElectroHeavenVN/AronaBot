@@ -44,12 +44,21 @@
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Configuration)'=='Release'">
     <Reference Include="ZepLaoSharp">
       <HintPath>D:\Working Repositories\ZepLaoSharp\ZepLaoSharp.FFMpeg\bin\Release\net8.0\ZepLaoSharp.dll</HintPath>
     </Reference>
     <Reference Include="ZepLaoSharp.FFMpeg">
       <HintPath>D:\Working Repositories\ZepLaoSharp\ZepLaoSharp.FFMpeg\bin\Release\net8.0\ZepLaoSharp.FFMpeg.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)'=='Debug'">
+    <Reference Include="ZepLaoSharp">
+      <HintPath>D:\Working Repositories\ZepLaoSharp\ZepLaoSharp.FFMpeg\bin\Debug\net8.0\ZepLaoSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="ZepLaoSharp.FFMpeg">
+      <HintPath>D:\Working Repositories\ZepLaoSharp\ZepLaoSharp.FFMpeg\bin\Debug\net8.0\ZepLaoSharp.FFMpeg.dll</HintPath>
     </Reference>
   </ItemGroup>
 
