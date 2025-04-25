@@ -22,7 +22,7 @@ namespace ZaloBot
 
         static ZaloClientBuilder clientBuilder = ZaloClientBuilder.CreateDefault();
         static ZaloClient client;
-        static HttpClient httpClient = new HttpClient();
+        static HttpClient httpClient = new HttpClient() { Timeout = TimeSpan.FromSeconds(10) };
         static object locker = new object();
         static string prefix = ",";
         static Dictionary<long, List<AIMessage>> messagesHistory = new Dictionary<long, List<AIMessage>>();
@@ -67,7 +67,6 @@ namespace ZaloBot
                 await client.RequestGroupMessagesAsync(lastMessageID);
 #endif
             await Task.Delay(Timeout.Infinite);
-
             //byte[] canvas = await CreateCanvas("https://cover-talk.zadn.vn/8/8/2/0/2/93a5444342ce14ac5e9344ac00e08e82.jpg", "https://zpsocial2-f3-org.zadn.vn/d57cd01a5722b67cef33.jpg", "https://ava-grp-talk.zadn.vn/e/9/0/6/2/360/692c8d9f01d6fdfe238103e1e5f97175.jpg",
             //    [
             //        "Chào mừng",
@@ -430,9 +429,10 @@ namespace ZaloBot
             ZaloUser user = await e.Member.GetUserAsync();
             string[] messages = string.Format(Config.Instance.LeaveBannerMessage, user.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm", e.Group.Name).Split('\n');
             byte[] canvas = await TryCreateCanvas(user.CoverLink == "https://cover-talk.zadn.vn/default" ? "" : user.CoverLink, user.AvatarLink, e.Group.AvatarLink, messages);
-            await e.Group.SendMessageAsync(new ZaloMessageBuilder()
+            ZaloMessageBuilder messageBuilder = new ZaloMessageBuilder()
                 .WithContent(string.Format(Config.Instance.LeaveMessage, e.Member.DisplayName, e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm"))
-                .AddAttachment(ZaloAttachment.FromData("image.png", canvas)));
+                .AddAttachment(ZaloAttachment.FromData("image.png", canvas));
+            await e.Group.SendMessageAsync(messageBuilder);
         }
 
         static async Task EventListeners_NewMemberJoined(ZaloClient client, MemberJoinedEventArgs e)
@@ -482,108 +482,117 @@ namespace ZaloBot
 
         static async Task ForwardMessagesToDiscord(GroupMessageReceivedEventArgs e)
         {
-#if DEBUG
-            return;
-#endif
             WriteLastMessageID(e.Message.ID);
             await discordWebhookSemaphore.WaitAsync();
-            string content = "";
-            string nl = Environment.NewLine;
-            if (e.Message.Quote is not null)
+            try
             {
-                string quote = "";
-                if (e.Message.Quote.Content is not null)
+                string content = "";
+                string nl = Environment.NewLine;
+                if (e.Message.Quote is not null)
                 {
-                    string str = e.Message.Quote.Content.ToInformationalString();
-                    if (str.Length > 40)
-                        str = str.Substring(0, 37).Replace("\r", "").Replace("\n", " ") + "...";
-                    quote += $"> -# {str}{nl}";
+                    string quote = "";
+                    if (e.Message.Quote.Content is not null)
+                    {
+                        string str = e.Message.Quote.Content.ToInformationalString();
+                        if (str.Length > 40)
+                            str = str.Substring(0, 37).Replace("\r", "").Replace("\n", " ") + "...";
+                        quote += $"> -# {str}{nl}";
+                    }
+                    quote = quote.TrimEnd(nl.ToCharArray());
+                    content += $"> **{e.Message.Quote.AuthorDisplayName}**{nl}{quote}{nl}{nl}";
                 }
-                quote = quote.TrimEnd(nl.ToCharArray());
-                content += $"> **{e.Message.Quote.AuthorDisplayName}**{nl}{quote}{nl}{nl}";
-            }
-            if (e.Message.Content[0] is not null)
-            {
-                if (e.Message.Content[0] is ZaloMessageDeletedContent deletedContent)
-                    content += $"-# Message {deletedContent.DeletedMessageID} deleted";
-                else if (e.Message.Content[0] is ZaloMessageRecalledContent recalledContent)
-                    content += $"-# Message {recalledContent.RecalledMessageID} recalled";
-                else
-                    content += e.Message.Content[0]!.Text;
+                if (e.Message.Content[0] is not null)
+                {
+                    if (e.Message.Content[0] is ZaloMessageDeletedContent deletedContent)
+                        content += $"-# Message {deletedContent.DeletedMessageID} deleted";
+                    else if (e.Message.Content[0] is ZaloMessageRecalledContent recalledContent)
+                        content += $"-# Message {recalledContent.RecalledMessageID} recalled";
+                    else
+                        content += e.Message.Content[0]!.Text;
 
-                if (e.Message.Content[0] is ZaloImageContent imageContent)
-                {
-                    string link = imageContent.HDLink;
-                    if (string.IsNullOrEmpty(link))
-                        link = imageContent.ImageLink;
-                    content += $"{nl}{link}";
+                    if (e.Message.Content[0] is ZaloImageContent imageContent)
+                    {
+                        string link = imageContent.HDLink;
+                        if (string.IsNullOrEmpty(link))
+                            link = imageContent.ImageLink;
+                        content += $"{nl}{link}";
+                    }
+                    else if (e.Message.Content[0] is ZaloFileContent fileContent)
+                        content += $"{nl}{fileContent.Link}";
+                    else if (e.Message.Content[0] is ZaloStickerContent stickerContent)
+                        content += $"{nl}https://zalo-api.zadn.vn/api/emoticon/sticker/webpc?eid={stickerContent.StickerID}";
+                    else if (e.Message.Content[0] is ZaloContactCardContent contactCardContent)
+                        content += $"{nl}{contactCardContent.QRImageLink}";
+                    else if (e.Message.Content[0] is ZaloLocationContent locationContent)
+                        content += $"{nl}https://maps.google.com/maps?q={locationContent.Latitude},{locationContent.Longitude}";
+                    else if (e.Message.Content[0] is ZaloVideoContent videoContent)
+                        content += $"{nl}{videoContent.VideoLink}";
+                    else if (e.Message.Content[0] is ZaloVoiceContent voiceContent)
+                        content += $"{nl}{voiceContent.AudioLink}";
+                    else if (e.Message.Content[0] is ZaloEmbeddedLinkContent zaloEmbeddedLinkContent)
+                    {
+                        if (string.IsNullOrEmpty(zaloEmbeddedLinkContent.Text))
+                            content += zaloEmbeddedLinkContent.Link;
+                        else if (!zaloEmbeddedLinkContent.Text.Contains(zaloEmbeddedLinkContent.Link))
+                            content += $"{nl}{zaloEmbeddedLinkContent.Link}";
+                    }
                 }
-                else if (e.Message.Content[0] is ZaloFileContent fileContent)
-                    content += $"{nl}{fileContent.Link}";
-                else if (e.Message.Content[0] is ZaloStickerContent stickerContent)
-                    content += $"{nl}https://zalo-api.zadn.vn/api/emoticon/sticker/webpc?eid={stickerContent.StickerID}";
-                else if (e.Message.Content[0] is ZaloContactCardContent contactCardContent)
-                    content += $"{nl}{contactCardContent.QRImageLink}";
-                else if (e.Message.Content[0] is ZaloLocationContent locationContent)
-                    content += $"{nl}https://maps.google.com/maps?q={locationContent.Latitude},{locationContent.Longitude}";
-                else if (e.Message.Content[0] is ZaloVideoContent videoContent)
-                    content += $"{nl}{videoContent.VideoLink}";
-                else if (e.Message.Content[0] is ZaloVoiceContent voiceContent)
-                    content += $"{nl}{voiceContent.AudioLink}";
-                else if (e.Message.Content[0] is ZaloEmbeddedLinkContent zaloEmbeddedLinkContent)
-                {
-                    if (string.IsNullOrEmpty(zaloEmbeddedLinkContent.Text))
-                        content += zaloEmbeddedLinkContent.Link;
-                    else if (!zaloEmbeddedLinkContent.Text.Contains(zaloEmbeddedLinkContent.Link))
-                        content += $"{nl}{zaloEmbeddedLinkContent.Link}";
-                }
-            }
-            else
-                content += "[Null message]";
-            JsonObject obj = new JsonObject()
+                else
+                    content += "[Null message]";
+                JsonObject obj = new JsonObject()
             {
                 { "content", content },
                 { "username", e.Member.DisplayName },
                 { "avatar_url", e.Member.AvatarLink },
             };
-            if (e.Group.ID == Config.Instance.EnabledGroupIDs[0])
-                await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
-            else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
-                await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
-            await Task.Delay(500);
+                if (e.Group.ID == Config.Instance.EnabledGroupIDs[0])
+                    await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+                else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
+                    await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+                await Task.Delay(500);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
             discordWebhookSemaphore.Release();
         }
 
         static async Task ForwardGroupEventsToDiscord(GroupEventsReceivedEventArgs e)
         {
-#if DEBUG
-            return;
-#endif
             await discordWebhookSemaphore.WaitAsync();
-            string content = "";
-            string groupType = e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm";
-            if (e is MemberJoinedEventArgs)
+            try
             {
-                if (e.Actioner is not null)
-                    content = $"-# **{e.Member.DisplayName}** được **{e.Actioner.DisplayName}** duyệt vào {groupType}.";
-                else
-                    content = $"-# **{e.Member.DisplayName}** vừa tham gia {groupType}.";
-            }
-            else if (e is MemberLeftEventArgs)
-                content = $"-# **{e.Member.DisplayName}** vừa rời khỏi {groupType}.";
-            else if (e is MemberRemovedEventArgs)
-                content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} xoá khỏi {groupType}.";
-            else if (e is MemberBlockedEventArgs)
-                content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} chặn khỏi {groupType}.";
-            JsonObject obj = new JsonObject()
+                string content = "";
+                string groupType = e.Group.GroupType == ZaloGroupType.Community ? "cộng đồng" : "nhóm";
+                if (e is MemberJoinedEventArgs)
+                {
+                    if (e.Actioner is not null)
+                        content = $"-# **{e.Member.DisplayName}** được **{e.Actioner.DisplayName}** duyệt vào {groupType}.";
+                    else
+                        content = $"-# **{e.Member.DisplayName}** vừa tham gia {groupType}.";
+                }
+                else if (e is MemberLeftEventArgs)
+                    content = $"-# **{e.Member.DisplayName}** vừa rời khỏi {groupType}.";
+                else if (e is MemberRemovedEventArgs)
+                    content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} xoá khỏi {groupType}.";
+                else if (e is MemberBlockedEventArgs)
+                    content = $"-# **{e.Member.DisplayName}** vừa bị {e.Actioner?.DisplayName} chặn khỏi {groupType}.";
+                Console.WriteLine(content);
+                JsonObject obj = new JsonObject()
             {
                 {"content", content },
             };
-            if (e.Group.ID == Config.Instance.EnabledGroupIDs[0])
-                await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
-            else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
-                await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
-            await Task.Delay(500);
+                if (e.Group.ID == Config.Instance.EnabledGroupIDs[0])
+                    await httpClient.PostAsync(Config.Instance.Webhooks[0], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+                else if (e.Group.ID == Config.Instance.EnabledGroupIDs[1])
+                    await httpClient.PostAsync(Config.Instance.Webhooks[1], new StringContent(obj.ToString(), Encoding.UTF8, "application/json"));
+                await Task.Delay(500);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
             discordWebhookSemaphore.Release();
         }
 
@@ -668,7 +677,14 @@ namespace ZaloBot
             }
             catch
             {
-                return await CreateCanvas("", avatar1Url, avatar2Url, messages);
+                try
+                {
+                    return await CreateCanvas("", avatar1Url, avatar2Url, messages);
+                }
+                catch
+                {
+                    return await CreateCanvas("", "", "", messages);
+                }
             }
         }
 
@@ -686,12 +702,25 @@ namespace ZaloBot
             CropFill(bg, 900, 300);
             bg.BrightnessContrast(new Percentage(-25), new Percentage(0));
             bg.HasAlpha = false;
-            var avatar1 = new MagickImage(await httpClient.GetByteArrayAsync(avatar1Url));
+            byte[] data;
+            if (!string.IsNullOrEmpty(avatar1Url))
+                data = await httpClient.GetByteArrayAsync(avatar1Url);
+            else if (File.Exists(@"Data\default.png"))
+                data = File.ReadAllBytes(@"Data\default.png");
+            else
+                throw new Exception();
+            var avatar1 = new MagickImage(data);
             avatar1.Resize(150, 150);
             avatar1 = RoundImage(avatar1);
             bg.Composite(avatar1, 50, (int)(bg.Height / 2 - avatar1.Height / 2), CompositeOperator.Over);
             avatar1.Dispose();
-            var avatar2 = new MagickImage(await httpClient.GetByteArrayAsync(avatar2Url));
+            if (!string.IsNullOrEmpty(avatar2Url))
+                data = await httpClient.GetByteArrayAsync(avatar2Url);
+            else if (File.Exists(@"Data\default.png"))
+                data = File.ReadAllBytes(@"Data\default.png");
+            else
+                throw new Exception();
+            var avatar2 = new MagickImage(data);
             avatar2.Resize(150, 150);
             avatar2 = RoundImage(avatar2);
             bg.Composite(avatar2, (int)(bg.Width - 50 - avatar2.Width), (int)(bg.Height / 2 - avatar2.Height / 2), CompositeOperator.Over);
