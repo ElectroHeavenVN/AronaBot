@@ -904,6 +904,7 @@ namespace ZaloBot
                 .SetAPIType(node["type"]?.GetValue<int>() ?? 0)
                 .SetAPIVersion(node["client_version"]?.GetValue<int>() ?? 0)
                 .SetMaxTimeCache(1000 * 60 * 60 * 3)
+                .SetConnectionTimeout(60000)
                 .SetComputerName(node["computer_name"]?.GetValue<string>() ?? "");
         }
     }
