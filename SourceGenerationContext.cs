@@ -1,5 +1,5 @@
 ﻿using System.Text.Json.Serialization;
-using ZepLaoSharp.Auth;
+using EHVN.ZepLaoSharp.Auth;
 
 namespace ZaloBot
 {
