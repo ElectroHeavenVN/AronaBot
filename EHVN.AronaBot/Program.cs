@@ -56,7 +56,7 @@ namespace EHVN.ZaloBot
             GroupCommands.Register(client);
             client.EventListeners.Disconnected += EventListeners_Disconnected;
             client.EventListeners.GroupMessageReceived += EventListeners_GroupMessageReceived;
-            DBOWordChat.Initialize();
+            DBOWorldChat.Initialize();
             await Task.Delay(Timeout.Infinite);
         }
 

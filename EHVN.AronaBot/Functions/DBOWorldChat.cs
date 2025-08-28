@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace EHVN.ZaloBot.Functions
 {
-    internal static class DBOWordChat
+    internal static class DBOWorldChat
     {
         static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
