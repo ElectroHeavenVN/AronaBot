@@ -1,0 +1,108 @@
+﻿using EHVN.ZaloBot.Commands;
+using EHVN.ZaloBot.Config;
+using EHVN.ZaloBot.Functions;
+using EHVN.ZaloBot.Functions.AI;
+using EHVN.ZepLaoSharp;
+using EHVN.ZepLaoSharp.Auth;
+using EHVN.ZepLaoSharp.Events;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace EHVN.ZaloBot
+{
+    internal class Program
+    {
+        static ZaloClientBuilder clientBuilder = new ZaloClientBuilder();
+        internal static ZaloClient client;
+        internal static DateTime startTime;
+
+        static async Task Main(string[] args)
+        {
+            if (!Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify")))
+                Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify"));
+            if (!File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json")))
+            {
+                JsonObject obj = new()
+                { 
+                    ["username"] = BotConfig.ReadonlyConfig.SpotifyUsername,
+                    ["type"] = "AUTHENTICATION_STORED_SPOTIFY_CREDENTIALS",
+                    ["credentials"] = BotConfig.ReadonlyConfig.SpotifyToken,
+                };
+                File.WriteAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json"), obj.ToJsonString());
+            }
+            DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+            if (vietnamTime.Hour < 6)
+                Console.WriteLine("Waiting until 06:00 AM to start...");
+            do
+            {
+                vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+                if (vietnamTime.Hour >= 6)
+                    break;
+                Thread.Sleep(1000 * 20);
+            }
+            while (true);
+
+            startTime = DateTime.UtcNow;
+            new Thread(CheckRestart).Start();
+            InitializeClient();
+            client = clientBuilder.Build();
+            await client.ConnectAsync();
+            Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
+            AdminCommands.Register(client);
+            GroupCommands.Register(client);
+            client.EventListeners.Disconnected += EventListeners_Disconnected;
+            client.EventListeners.GroupMessageReceived += EventListeners_GroupMessageReceived;
+            DBOWordChat.Initialize();
+            await Task.Delay(Timeout.Infinite);
+        }
+
+        static async void CheckRestart()
+        {
+            while (true)
+            {
+                DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+                if (vietnamTime.Minute == 0 && vietnamTime.Hour > 0 && vietnamTime.Hour < 6)
+                {
+                    await client.DisconnectAsync();
+                    Thread.Sleep(1000 * 60);
+                    Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "") { UseShellExecute = true });
+                    Environment.Exit(0);
+                }
+                Thread.Sleep(1000 * 20);
+            }
+        }
+
+        static async Task EventListeners_Disconnected(ZaloClient client, GatewayDisconnectedEventArgs args)
+        {
+            await Task.Delay(60000);
+            await client.ConnectAsync();
+        }
+
+        static async Task EventListeners_GroupMessageReceived(ZaloClient sender, GroupMessageReceivedEventArgs args)
+        {
+            await ChatAI.GroupMessageReceived(sender, args);
+        }
+
+        static void InitializeClient()
+        {
+            JsonNode node = JsonNode.Parse(File.ReadAllText(@"Data\credentials-pc.json")) ?? throw new Exception("Missing credentials-pc.json");
+            clientBuilder = clientBuilder
+                .WithMaxTimeCache(TimeSpan.FromHours(3))
+                .WithCredential(new LoginCredentialBuilder()
+                    .UsePCCredential(ZepLaoSharp.Auth.OperatingSystem.Windows)
+                    .WithAPIType(node["api_type"]?.GetValue<int>() ?? 0)
+                    .WithAPIVersion(node["client_version"]?.GetValue<int>() ?? 0)
+                    .WithComputerName(node["computer_name"]?.GetValue<string>() ?? "")
+                    .WithIMEI(node["imei"]?.GetValue<string>() ?? "")
+                    .WithToken(node["token"]?.GetValue<string>() ?? "")
+                    .WithLanguage(Language.Vietnamese)
+                    .Build()
+                    );
+            //ZaloLogger.SetLogger(new DefaultLogger(LogLevel.Trace));
+        }
+    }
+}

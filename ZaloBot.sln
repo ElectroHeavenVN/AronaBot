@@ -3,21 +3,52 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35806.99
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZaloBot", "ZaloBot.csproj", "{34B6A094-8D97-4431-91AC-920C4D1519D0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EHVN.ZaloBot", "EHVN.ZaloBot\EHVN.ZaloBot.csproj", "{B9708600-7204-1FC8-D93D-11711161D578}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EHVN.ZaloBot.Graphics", "EHVN.ZaloBot.Graphics\EHVN.ZaloBot.Graphics.csproj", "{F448BCBC-AD2E-4878-B938-6BB6BE740551}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DataNRO", "DataNRO", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataNRO.TeaMobi", "DataNRO\CLI\DataNRO.TeaMobi\DataNRO.TeaMobi.csproj", "{954B5416-EF3E-5A7C-B99B-10F8A2354DF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataNRO", "DataNRO\CLI\DataNRO\DataNRO.csproj", "{2790AF35-A9C8-EF7A-F9FB-ACB3C7D423D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StarkSoftProxy", "DataNRO\CLI\StarkSoftProxy\StarkSoftProxy.csproj", "{82663C2A-5C3F-12E0-1712-5C0CFDB8B9D2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{34B6A094-8D97-4431-91AC-920C4D1519D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{34B6A094-8D97-4431-91AC-920C4D1519D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{34B6A094-8D97-4431-91AC-920C4D1519D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{34B6A094-8D97-4431-91AC-920C4D1519D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9708600-7204-1FC8-D93D-11711161D578}.Debug|x86.ActiveCfg = Debug|x86
+		{B9708600-7204-1FC8-D93D-11711161D578}.Debug|x86.Build.0 = Debug|x86
+		{B9708600-7204-1FC8-D93D-11711161D578}.Release|x86.ActiveCfg = Release|x86
+		{B9708600-7204-1FC8-D93D-11711161D578}.Release|x86.Build.0 = Release|x86
+		{F448BCBC-AD2E-4878-B938-6BB6BE740551}.Debug|x86.ActiveCfg = Debug|x86
+		{F448BCBC-AD2E-4878-B938-6BB6BE740551}.Debug|x86.Build.0 = Debug|x86
+		{F448BCBC-AD2E-4878-B938-6BB6BE740551}.Release|x86.ActiveCfg = Release|x86
+		{F448BCBC-AD2E-4878-B938-6BB6BE740551}.Release|x86.Build.0 = Release|x86
+		{954B5416-EF3E-5A7C-B99B-10F8A2354DF6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{954B5416-EF3E-5A7C-B99B-10F8A2354DF6}.Debug|x86.Build.0 = Debug|Any CPU
+		{954B5416-EF3E-5A7C-B99B-10F8A2354DF6}.Release|x86.ActiveCfg = Release|Any CPU
+		{954B5416-EF3E-5A7C-B99B-10F8A2354DF6}.Release|x86.Build.0 = Release|Any CPU
+		{2790AF35-A9C8-EF7A-F9FB-ACB3C7D423D0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2790AF35-A9C8-EF7A-F9FB-ACB3C7D423D0}.Debug|x86.Build.0 = Debug|Any CPU
+		{2790AF35-A9C8-EF7A-F9FB-ACB3C7D423D0}.Release|x86.ActiveCfg = Release|Any CPU
+		{2790AF35-A9C8-EF7A-F9FB-ACB3C7D423D0}.Release|x86.Build.0 = Release|Any CPU
+		{82663C2A-5C3F-12E0-1712-5C0CFDB8B9D2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{82663C2A-5C3F-12E0-1712-5C0CFDB8B9D2}.Debug|x86.Build.0 = Debug|Any CPU
+		{82663C2A-5C3F-12E0-1712-5C0CFDB8B9D2}.Release|x86.ActiveCfg = Release|Any CPU
+		{82663C2A-5C3F-12E0-1712-5C0CFDB8B9D2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{954B5416-EF3E-5A7C-B99B-10F8A2354DF6} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{2790AF35-A9C8-EF7A-F9FB-ACB3C7D423D0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{82663C2A-5C3F-12E0-1712-5C0CFDB8B9D2} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {031DB937-B9E6-4731-A238-28A06CC42DCC}

@@ -1,0 +1,3 @@
+[submodule "DataNRO"]
+	path = DataNRO
+	url = https://github.com/ElectroHeavenVN/DataNRO/

@@ -362,6 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-!Properties/PublishProfiles/FolderProfile.pubxml
-Data/credentials.json
-Data/config.json
+!FolderProfile.pubxml
+credentials*.json
+*-config.json
