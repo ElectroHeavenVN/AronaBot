@@ -16,7 +16,7 @@ namespace EHVN.ZaloBot.Functions
         static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
         static readonly string[] BLACKLIST = [
-            "Đã tiêu diệt được",
+            "Đã tiêu diệt được", 
             "180 phút",
             "vừa xuất hiện tại",
             ];
@@ -24,6 +24,8 @@ namespace EHVN.ZaloBot.Functions
         static readonly string[] INCLUDES = [
             "|5|[HT]"
             ];
+
+        const long TTL = 1000 * 60 * 30; //30 minutes
 
         internal static void Initialize()
         {
@@ -106,7 +108,7 @@ namespace EHVN.ZaloBot.Functions
         internal static async Task SendMessageToGroupsAsync(string name, string msg)
         {
             await semaphoreSlim.WaitAsync();
-            msg = msg.Replace("|5|[HT]", "");
+            msg = msg.Replace("|5|[HT] ", "");
             try
             {
                 List<ZaloGroup> groups = await Program.client.GetGroupsAsync(BotConfig.WritableConfig.EnabledGroupIDs.ToArray());
@@ -115,11 +117,11 @@ namespace EHVN.ZaloBot.Functions
                 ZaloGroup group = groups.FirstOrDefault()!;
                 if (!string.IsNullOrEmpty(name))
                     msg = $"{Formatter.FontSizeLarge(Formatter.Bold(Formatter.ColorGreen(name)))}\n{Formatter.ColorYellow(msg)}";
-                ZaloMessage message = (await group.SendMessageAsync(new ZaloMessageBuilder().WithContent(msg).DisappearAfter(1000 * 60 * 10)))[0];
+                ZaloMessage message = (await group.SendMessageAsync(new ZaloMessageBuilder().WithContent(msg).DisappearAfter(TTL)))[0];
                 if (groups.Count == 1)
                     return;
                 await Task.Delay(1000);
-                await message.ForwardAsync(groups.Skip(1).OfType<ZaloThread>().ToList(), 1000 * 60 * 10);
+                await message.ForwardAsync(groups.Skip(1).OfType<ZaloThread>().ToList(), TTL);
             }
             catch (Exception ex)
             {
