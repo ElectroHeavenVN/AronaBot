@@ -1,4 +1,2 @@
-# ZaloBotExample
-Example Zalo bot using ZepLaoSharp library.
-
-Won't be compilable because YOU don't have the ZepLaoSharp library.
+# AronaBot
+A lightweight [Zalo](https://zalo.me/) bot made using the [ZepLaoSharp library](https://github.com/ElectroHeavenVN/ZepLaoSharp).

@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.13.35806.99
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EHVN.ZaloBot", "EHVN.ZaloBot\EHVN.ZaloBot.csproj", "{B9708600-7204-1FC8-D93D-11711161D578}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EHVN.AronaBot", "EHVN.AronaBot\EHVN.AronaBot.csproj", "{B9708600-7204-1FC8-D93D-11711161D578}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EHVN.ZaloBot.Graphics", "EHVN.ZaloBot.Graphics\EHVN.ZaloBot.Graphics.csproj", "{F448BCBC-AD2E-4878-B938-6BB6BE740551}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EHVN.AronaBot.Graphics", "EHVN.AronaBot.Graphics\EHVN.AronaBot.Graphics.csproj", "{F448BCBC-AD2E-4878-B938-6BB6BE740551}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DataNRO", "DataNRO", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
