@@ -66,6 +66,54 @@ namespace EHVN.AronaBot.Commands
                 .WithDescription("Hủy kích hoạt nhóm hiện tại để sử dụng lệnh thành viên")
                 .WithHandler(DeactivateCurrentGroup)
             );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("game-add")
+                .WithName("Send game notification in current group")
+                .WithDescription("Gửi thông báo game trong nhóm hiện tại")
+                .WithHandler(AddCurrentGroupGameNotif)
+            );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("game-remove")
+                .WithName("Don't send game notification in current group")
+                .WithDescription("Không gửi thông báo game trong nhóm hiện tại")
+                .WithHandler(RemoveCurrentGroupGameNotif)
+            );
+        }
+
+        private static async Task AddCurrentGroupGameNotif(CommandContext ctx)
+        {
+            if (!BotConfig.WritableConfig.DBONotifGroupIDs.Contains(ctx.Thread.ThreadID))
+            {
+                await ctx.Message.AddReactionAsync("/-ok");
+                BotConfig.WritableConfig.DBONotifGroupIDs.Add(ctx.Thread.ThreadID);
+                BotConfig.Save();
+                await ctx.RespondAsync("Nhóm hiện tại đã được thêm vào danh sách nhận thông báo game.");
+            }
+            else
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Nhóm hiện tại đã có trong danh sách nhận thông báo game.");
+            }
+        }
+
+        private static async Task RemoveCurrentGroupGameNotif(CommandContext ctx)
+        {
+            if (BotConfig.WritableConfig.DBONotifGroupIDs.Contains(ctx.Thread.ThreadID))
+            {
+                await ctx.Message.AddReactionAsync("/-ok");
+                BotConfig.WritableConfig.DBONotifGroupIDs.Remove(ctx.Thread.ThreadID);
+                BotConfig.Save();
+                await ctx.RespondAsync("Nhóm hiện tại sẽ không được nhận thông báo game nữa.");
+            }
+            else
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Nhóm hiện tại không có trong danh sách nhận thông báo game.");
+            }
         }
 
         private static async Task ActivateCurrentGroup(CommandContext ctx)

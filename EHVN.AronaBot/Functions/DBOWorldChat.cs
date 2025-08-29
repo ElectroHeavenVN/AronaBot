@@ -20,7 +20,7 @@ namespace EHVN.AronaBot.Functions
 
         //pessi0calo vừa đánh quái may mắn nhận được 1 trang bị Set kích hoạt
         //bakugou vừa đánh quái may mắn nhận được 1 trang bị Set kích hoạt Set Cađic M
-        [GeneratedRegex("^(?:.*?) vừa đánh quái may mắn nhận được 1 trang bị (Set kích hoạt.*)$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+        [GeneratedRegex("^(?:.*?) vừa đánh quái may mắn nhận được 1 trang bị (Set kích hoạt(?: .*)?)$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
         private static partial Regex RegexExtractInfo();
 
         //bakugou [Super 1]
@@ -38,7 +38,7 @@ namespace EHVN.AronaBot.Functions
                     return;
                 }
                 Console.WriteLine($"[{session.Host}:{session.Port}] Sending server chat to groups:\r\n" + msg);
-                await SendMessageToGroupsAsync(name, msg.Substring(7));
+                await SendMessageToGroupsAsync(name, msg.Substring(8));
             };
 
             session.MessageReceiver.EventListeners.ServerNotificationReceived += (msg) =>
@@ -93,7 +93,7 @@ namespace EHVN.AronaBot.Functions
 
         internal static async Task SendMessageToGroupsAsync(string name, string msg)
         {
-            Match match = RegexExtractServer().Match(msg);
+            Match match = RegexExtractServer().Match(name);
             if (!match.Success)
                 return;
             name = match.Groups[1].Value;
@@ -102,13 +102,15 @@ namespace EHVN.AronaBot.Functions
             if (!match.Success)
                 return;
             string type = match.Groups[1].Value;
+            if (type != "Set kích hoạt")
+                type = type.Substring(14);
 
             msg = Formatter.Bold($"Sensei {Formatter.ColorRed(name)} ở {Formatter.ColorYellow(server)} vừa may mắn nhận được 1 trang bị {Formatter.ColorGreen(type)} do liêm khiết!");
 
             await semaphoreSlim.WaitAsync();
             try
             {
-                List<ZaloGroup> groups = await Program.client.GetGroupsAsync(BotConfig.WritableConfig.EnabledGroupIDs.ToArray());
+                List<ZaloGroup> groups = await Program.client.GetGroupsAsync(BotConfig.WritableConfig.DBONotifGroupIDs.ToArray());
                 if (groups.Count == 0)
                     return;
                 ZaloGroup group = groups.FirstOrDefault()!;

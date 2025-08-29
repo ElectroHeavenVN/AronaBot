@@ -15,7 +15,6 @@ namespace EHVN.AronaBot.Commands
     {
         internal static void Register(ZaloClient client)
         {
-            return;
             var cmd = client.FindOrCreateCommandsExtension(new CommandConfiguration()
             {
                 PrefixResolver = new PrefixResolver().ResolvePrefixAsync,

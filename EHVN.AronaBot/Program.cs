@@ -52,8 +52,10 @@ namespace EHVN.AronaBot
             client = clientBuilder.Build();
             await client.ConnectAsync();
             Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
+#if !DEBUG
             AdminCommands.Register(client);
             GroupCommands.Register(client);
+#endif
             client.EventListeners.Disconnected += EventListeners_Disconnected;
             client.EventListeners.GroupMessageReceived += EventListeners_GroupMessageReceived;
             DBOWorldChat.Initialize();

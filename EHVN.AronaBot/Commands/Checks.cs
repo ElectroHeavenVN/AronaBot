@@ -21,6 +21,8 @@ namespace EHVN.AronaBot.Commands
         {
             if (!base.CanExecute(ctx))
                 return false;
+            if (BotConfig.GetAllAdminIDs().Contains(ctx.User.ID))
+                return true;
             if (!BotConfig.WritableConfig.EnabledGroupIDs.Contains(ctx.Thread.ThreadID))
                 return false;
             if (BotConfig.WritableConfig.DisabledUserIDs.Contains(ctx.User.ID))
