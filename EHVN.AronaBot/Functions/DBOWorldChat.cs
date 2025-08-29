@@ -1,6 +1,6 @@
 ﻿using EHVN.DataNRO.Interfaces;
 using EHVN.DataNRO.TeaMobi;
-using EHVN.ZaloBot.Config;
+using EHVN.AronaBot.Config;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Entities;
 using System;
@@ -8,58 +8,43 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
-namespace EHVN.ZaloBot.Functions
+namespace EHVN.AronaBot.Functions
 {
-    internal static class DBOWorldChat
+    internal static partial class DBOWorldChat
     {
         static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
-        static readonly string[] BLACKLIST = [
-            "Đã tiêu diệt được", 
-            "180 phút",
-            "vừa xuất hiện tại",
-            ];
-
-        static readonly string[] INCLUDES = [
-            "|5|[HT]"
-            ];
-
         const long TTL = 1000 * 60 * 30; //30 minutes
+
+        //pessi0calo vừa đánh quái may mắn nhận được 1 trang bị Set kích hoạt
+        //bakugou vừa đánh quái may mắn nhận được 1 trang bị Set kích hoạt Set Cađic M
+        [GeneratedRegex("^(?:.*?) vừa đánh quái may mắn nhận được 1 trang bị (Set kích hoạt.*)$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+        private static partial Regex RegexExtractInfo();
+
+        //bakugou [Super 1]
+        [GeneratedRegex("^(.*?) \\[(?:(.*?)(?: sao)?)\\]$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
+        private static partial Regex RegexExtractServer();
 
         internal static void Initialize()
         {
-            //register events
-            var session = new TeaMobiSession("dragon1.teamobi.com", 14445);
+            var session = new TeaMobiSession(BotConfig.ReadonlyConfig.DBO.ServerAddress, BotConfig.ReadonlyConfig.DBO.ServerPort);
             session.MessageReceiver.EventListeners.ServerChatReceived += async (name, msg) =>
             {
-                //if (BLACKLIST.Any(x => msg.Contains(x)))
-                //{
-                //    Console.WriteLine($"[{session.Host}:{session.Port}] Chat ignored:\r\n" + msg);
-                //    return;
-                //}
-                if (!INCLUDES.Any(x => msg.Contains(x)))
+                if (!msg.StartsWith("|5|[HT] "))
                 {
-                    Console.WriteLine($"[{session.Host}:{session.Port}] Chat ignored:\r\n" + msg);
+                    Console.WriteLine($"[{session.Host}:{session.Port}] Server chat ignored:\r\n" + msg);
                     return;
                 }
-                await SendMessageToGroupsAsync(name, msg);
-            };
-            session.MessageReceiver.EventListeners.ServerNotificationReceived += async (msg) =>
-            {
-                //if (BLACKLIST.Any(x => msg.Contains(x)))
-                //{
-                //    Console.WriteLine($"[{session.Host}:{session.Port}] Notification ignored:\r\n" + msg);
-                //    return;
-                //}
-                if (!INCLUDES.Any(x => msg.Contains(x)))
-                {
-                    Console.WriteLine($"[{session.Host}:{session.Port}] Notification ignored:\r\n" + msg);
-                    return;
-                }
-                await SendMessageToGroupsAsync("", msg);
+                Console.WriteLine($"[{session.Host}:{session.Port}] Sending server chat to groups:\r\n" + msg);
+                await SendMessageToGroupsAsync(name, msg.Substring(7));
             };
 
+            session.MessageReceiver.EventListeners.ServerNotificationReceived += (msg) =>
+            {
+                Console.WriteLine($"[{session.Host}:{session.Port}] Server notification received:\r\n" + msg);
+            };
             session.MessageReceiver.EventListeners.DialogMessageReceived += (msg) =>
             {
                 Console.WriteLine($"[{session.Host}:{session.Port}] Dialog message received:\r\n" + msg);
@@ -83,6 +68,7 @@ namespace EHVN.ZaloBot.Functions
             _ = LoginAndKeepAliveAsync(session).ConfigureAwait(false);
         }
 
+        //TODO: improve keep-alive logic, handle daily maintenance, disconnections, etc.
         static async Task LoginAndKeepAliveAsync(ISession session)
         {
             await session.ConnectAsync();
@@ -91,7 +77,7 @@ namespace EHVN.ZaloBot.Functions
             await Task.Delay(2000);
             writer.ImageSource();
             await Task.Delay(1000);
-            writer.Login(BotConfig.ReadonlyConfig.NROAccount, BotConfig.ReadonlyConfig.NROPassword, 0);
+            writer.Login(BotConfig.ReadonlyConfig.DBO.Account, BotConfig.ReadonlyConfig.DBO.Password, 0);
             await Task.Delay(3000);
             writer.ClientOk();
             writer.FinishUpdate();
@@ -107,16 +93,25 @@ namespace EHVN.ZaloBot.Functions
 
         internal static async Task SendMessageToGroupsAsync(string name, string msg)
         {
+            Match match = RegexExtractServer().Match(msg);
+            if (!match.Success)
+                return;
+            name = match.Groups[1].Value;
+            string server = "Server " + match.Groups[2].Value;
+            match = RegexExtractInfo().Match(msg);
+            if (!match.Success)
+                return;
+            string type = match.Groups[1].Value;
+
+            msg = Formatter.Bold($"Sensei {Formatter.ColorRed(name)} ở {Formatter.ColorYellow(server)} vừa may mắn nhận được 1 trang bị {Formatter.ColorGreen(type)} do liêm khiết!");
+
             await semaphoreSlim.WaitAsync();
-            msg = msg.Replace("|5|[HT] ", "");
             try
             {
                 List<ZaloGroup> groups = await Program.client.GetGroupsAsync(BotConfig.WritableConfig.EnabledGroupIDs.ToArray());
                 if (groups.Count == 0)
                     return;
                 ZaloGroup group = groups.FirstOrDefault()!;
-                if (!string.IsNullOrEmpty(name))
-                    msg = $"{Formatter.FontSizeLarge(Formatter.Bold(Formatter.ColorGreen(name)))}\n{Formatter.ColorYellow(msg)}";
                 ZaloMessage message = (await group.SendMessageAsync(new ZaloMessageBuilder().WithContent(msg).DisappearAfter(TTL)))[0];
                 if (groups.Count == 1)
                     return;

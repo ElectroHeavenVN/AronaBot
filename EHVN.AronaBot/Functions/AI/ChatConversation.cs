@@ -1,8 +1,8 @@
-﻿using EHVN.ZaloBot.Functions.AI.Providers;
+﻿using EHVN.AronaBot.Functions.AI.Providers;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot.Functions.AI
+namespace EHVN.AronaBot.Functions.AI
 {
     internal class ChatConversation
     {

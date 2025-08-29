@@ -1,9 +1,9 @@
-﻿using EHVN.ZaloBot.Config;
+﻿using EHVN.AronaBot.Config;
 using EHVN.ZepLaoSharp.Commands;
 using System;
 using System.Linq;
 
-namespace EHVN.ZaloBot.Commands
+namespace EHVN.AronaBot.Commands
 {
     internal class AdminCheck : ICommandCheck
     {

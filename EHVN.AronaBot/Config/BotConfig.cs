@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Text.Json;
 
-namespace EHVN.ZaloBot.Config
+namespace EHVN.AronaBot.Config
 {
     internal static class BotConfig
     {

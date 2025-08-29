@@ -1,4 +1,4 @@
-﻿using EHVN.ZaloBot.Config;
+﻿using EHVN.AronaBot.Config;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot.Functions.AI.Providers
+namespace EHVN.AronaBot.Functions.AI.Providers
 {
     internal abstract class OpenRouterAIProvider : IAIProvider
     {

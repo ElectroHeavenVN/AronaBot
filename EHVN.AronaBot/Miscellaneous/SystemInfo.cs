@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics.X86;
-using static EHVN.ZaloBot.Miscellaneous.NativeMethods;
+using static EHVN.AronaBot.Miscellaneous.NativeMethods;
 
-namespace EHVN.ZaloBot.Miscellaneous
+namespace EHVN.AronaBot.Miscellaneous
 {
     internal static class SystemInfo
     {

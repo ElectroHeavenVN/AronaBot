@@ -1,11 +1,11 @@
 ﻿using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
-using EHVN.ZaloBot.Config;
+using EHVN.AronaBot.Config;
 using System.Threading.Tasks;
 using System;
 using System.Linq;
 
-namespace EHVN.ZaloBot
+namespace EHVN.AronaBot
 {
     internal class PrefixResolver : IPrefixResolver
     {

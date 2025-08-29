@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.IO;
-using EHVN.ZaloBot.Config;
+using EHVN.AronaBot.Config;
 
-namespace EHVN.ZaloBot.Miscellaneous
+namespace EHVN.AronaBot.Miscellaneous
 {
     internal class MyGraphics
     {
@@ -10,7 +10,7 @@ namespace EHVN.ZaloBot.Miscellaneous
         {
             Process? graphics = Process.Start(new ProcessStartInfo
             {
-                FileName = "EHVN.ZaloBot.Graphics.exe",
+                FileName = "EHVN.AronaBot.Graphics.exe",
                 Arguments = $"add-watermark \"{path}\" \"{BotConfig.WritableConfig.Prefix}\"",
                 RedirectStandardOutput = true,
             });
@@ -31,7 +31,7 @@ namespace EHVN.ZaloBot.Miscellaneous
                 messagesJoined += '"' + message + "\" ";
             Process? graphics = Process.Start(new ProcessStartInfo
             {
-                FileName = "EHVN.ZaloBot.Graphics.exe",
+                FileName = "EHVN.AronaBot.Graphics.exe",
                 Arguments = $"create-canvas \"{bgUrl}\" \"{avatar1Url}\" \"{avatar2Url}\" {messagesJoined}",
                 RedirectStandardOutput = true,
             });

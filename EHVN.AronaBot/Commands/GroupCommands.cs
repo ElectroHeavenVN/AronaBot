@@ -1,5 +1,5 @@
-﻿using EHVN.ZaloBot.Config;
-using EHVN.ZaloBot.Miscellaneous;
+﻿using EHVN.AronaBot.Config;
+using EHVN.AronaBot.Miscellaneous;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
@@ -9,7 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot.Commands
+namespace EHVN.AronaBot.Commands
 {
     internal class GroupCommands
     {

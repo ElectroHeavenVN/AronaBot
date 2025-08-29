@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Threading;
 
-namespace EHVN.ZaloBot.Miscellaneous
+namespace EHVN.AronaBot.Miscellaneous
 {
     internal static class ProcessInfo
     {

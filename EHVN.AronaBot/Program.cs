@@ -1,7 +1,7 @@
-﻿using EHVN.ZaloBot.Commands;
-using EHVN.ZaloBot.Config;
-using EHVN.ZaloBot.Functions;
-using EHVN.ZaloBot.Functions.AI;
+﻿using EHVN.AronaBot.Commands;
+using EHVN.AronaBot.Config;
+using EHVN.AronaBot.Functions;
+using EHVN.AronaBot.Functions.AI;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Auth;
 using EHVN.ZepLaoSharp.Events;
@@ -12,7 +12,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot
+namespace EHVN.AronaBot
 {
     internal class Program
     {

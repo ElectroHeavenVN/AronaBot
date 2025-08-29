@@ -2,7 +2,7 @@
 using ImageMagick.Drawing;
 using ImageMagick.Formats;
 
-namespace EHVN.ZaloBot
+namespace EHVN.AronaBot
 {
     internal class MyGraphics
     {
@@ -38,7 +38,7 @@ namespace EHVN.ZaloBot
                 FontWeight = FontWeight.Normal,
                 FillColor = MagickColors.Red,
             };
-            watermark.Read("caption:ZaloBot - Developed by ElectroHeavenVN", settings);
+            watermark.Read("caption:AronaBot - Developed by ElectroHeavenVN", settings);
             img.Composite(watermark, 0, 0, CompositeOperator.Over);
             settings.FontPointsize = 16;
             settings.FontStyle = FontStyleType.Normal;
@@ -220,7 +220,7 @@ namespace EHVN.ZaloBot
                 .FontPointSize(15)
                 .Font("Arial")
                 .FillColor(MagickColors.White)
-                .Text(10, 15, "ZaloBot C# by ElectroHeavenVN")
+                .Text(10, 15, "AronaBot by ElectroHeavenVN")
                 .Draw(finalBg);
             byte[] result = finalBg.ToByteArray();
             finalBg.Dispose();

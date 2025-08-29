@@ -1,4 +1,4 @@
-﻿namespace EHVN.ZaloBot.Graphics
+﻿namespace EHVN.AronaBot.Graphics
 {
     internal class Program
     {
@@ -8,7 +8,7 @@
             {
                 Console.Error.WriteLine(
                     """
-                    Usage: EHVN.ZaloBot.Graphics <mode> [options]
+                    Usage: EHVN.AronaBot.Graphics <mode> [options]
                     Modes:
                       add-watermark <image-path> <prefix>
                       create-canvas <bg-url> <avatar1-url> <avatar2-url> <messages>

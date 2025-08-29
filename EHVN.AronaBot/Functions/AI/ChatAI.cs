@@ -1,5 +1,5 @@
-﻿using EHVN.ZaloBot.Config;
-using EHVN.ZaloBot.Miscellaneous;
+﻿using EHVN.AronaBot.Config;
+using EHVN.AronaBot.Miscellaneous;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Events;
 using System;
@@ -12,7 +12,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot.Functions.AI
+namespace EHVN.AronaBot.Functions.AI
 {
     internal static class ChatAI
     {

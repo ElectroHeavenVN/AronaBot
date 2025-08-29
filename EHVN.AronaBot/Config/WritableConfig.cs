@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace EHVN.ZaloBot
+namespace EHVN.AronaBot.Config
 {
     internal class WritableConfig
     {

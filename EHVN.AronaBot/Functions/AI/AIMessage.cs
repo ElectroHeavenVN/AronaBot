@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace EHVN.ZaloBot.Functions.AI
+namespace EHVN.AronaBot.Functions.AI
 {
     internal class AIMessage
     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot.Functions.AI.Providers
+namespace EHVN.AronaBot.Functions.AI.Providers
 {
     internal class DeepSeekV3_2024 : OpenRouterAIProvider
     {

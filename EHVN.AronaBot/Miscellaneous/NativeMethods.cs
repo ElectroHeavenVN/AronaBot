@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace EHVN.ZaloBot.Miscellaneous
+namespace EHVN.AronaBot.Miscellaneous
 {
     internal static class NativeMethods
     {

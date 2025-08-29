@@ -1,4 +1,4 @@
-﻿using EHVN.ZaloBot.Config;
+﻿using EHVN.AronaBot.Config;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Bmp;
 using MetadataExtractor.Formats.Gif;
@@ -13,7 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EHVN.ZaloBot.Miscellaneous
+namespace EHVN.AronaBot.Miscellaneous
 {
     internal static class Utils
     {
