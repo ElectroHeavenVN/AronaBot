@@ -16,7 +16,7 @@ namespace EHVN.AronaBot.Functions
     {
         static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
-        const long TTL = 1000 * 60 * 30; //30 minutes
+        const long TTL_MINUTES = 30;
 
         //pessi0calo vừa đánh quái may mắn nhận được 1 trang bị Set kích hoạt
         //bakugou vừa đánh quái may mắn nhận được 1 trang bị Set kích hoạt Set Cađic M
@@ -110,15 +110,15 @@ namespace EHVN.AronaBot.Functions
             await semaphoreSlim.WaitAsync();
             try
             {
-                List<ZaloGroup> groups = await Program.client.GetGroupsAsync(BotConfig.WritableConfig.DBONotifGroupIDs.ToArray());
+                List<ZaloGroup> groups = await Program.client.GetGroupsAsync(BotConfig.WritableConfig.DBONotifGroupIDs.ToArray(), []);
                 if (groups.Count == 0)
                     return;
                 ZaloGroup group = groups.FirstOrDefault()!;
-                ZaloMessage message = (await group.SendMessageAsync(new ZaloMessageBuilder().WithContent(msg).DisappearAfter(TTL)))[0];
+                ZaloMessage message = await group.SendMessageAsync(msg, TimeSpan.FromMinutes(TTL_MINUTES));
                 if (groups.Count == 1)
                     return;
                 await Task.Delay(1000);
-                await message.ForwardAsync(groups.Skip(1).OfType<ZaloThread>().ToList(), TTL);
+                await message.ForwardAsync(groups.Skip(1).OfType<ZaloThread>().ToList(), TimeSpan.FromMinutes(TTL_MINUTES));
             }
             catch (Exception ex)
             {

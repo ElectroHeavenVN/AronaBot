@@ -211,7 +211,7 @@ namespace EHVN.AronaBot.Commands
         {
             await ctx.Message.AddReactionAsync("/-ok");
             string content = "Danh sách quản trị viên:\n";
-            await ctx.Client.GetUsersAsync(BotConfig.GetAllAdminIDs().ToArray());
+            await ctx.Client.GetUsersAsync(BotConfig.GetAllAdminIDs().ToArray(), []);
             foreach (long id in BotConfig.GetAllAdminIDs())
             {
                 ZaloUser user = await ctx.Client.GetUserAsync(id);

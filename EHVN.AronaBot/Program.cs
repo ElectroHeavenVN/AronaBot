@@ -4,7 +4,9 @@ using EHVN.AronaBot.Functions;
 using EHVN.AronaBot.Functions.AI;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Auth;
+using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.Events;
+using EHVN.ZepLaoSharp.FFMpeg;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -16,8 +18,10 @@ namespace EHVN.AronaBot
 {
     internal class Program
     {
-        static ZaloClientBuilder clientBuilder = new ZaloClientBuilder();
+#pragma warning disable CS8618
         internal static ZaloClient client;
+#pragma warning restore CS8618
+        static ZaloClientBuilder clientBuilder = new ZaloClientBuilder();
         internal static DateTime startTime;
 
         static async Task Main(string[] args)
@@ -27,7 +31,7 @@ namespace EHVN.AronaBot
             if (!File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json")))
             {
                 JsonObject obj = new()
-                { 
+                {
                     ["username"] = BotConfig.ReadonlyConfig.SpotifyUsername,
                     ["type"] = "AUTHENTICATION_STORED_SPOTIFY_CREDENTIALS",
                     ["credentials"] = BotConfig.ReadonlyConfig.SpotifyToken,
@@ -49,6 +53,8 @@ namespace EHVN.AronaBot
             startTime = DateTime.UtcNow;
             new Thread(CheckRestart).Start();
             InitializeClient();
+            FFMpegUtils.ClearCache();
+            FFMpegUtils.FFMpegPath = "Tools\\ffmpeg";
             client = clientBuilder.Build();
             await client.ConnectAsync();
             Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
@@ -58,8 +64,18 @@ namespace EHVN.AronaBot
 #endif
             client.EventListeners.Disconnected += EventListeners_Disconnected;
             client.EventListeners.GroupMessageReceived += EventListeners_GroupMessageReceived;
-            DBOWorldChat.Initialize();
+            //DBOWorldChat.Initialize();
             await Task.Delay(Timeout.Infinite);
+        }
+
+        static void UpdateYTDlp()
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = @"Tools\yt-dlp\yt-dlp.exe",
+                Arguments = "-U",
+                UseShellExecute = false,
+            });
         }
 
         static async void CheckRestart()
@@ -69,6 +85,7 @@ namespace EHVN.AronaBot
                 DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
                 if (vietnamTime.Minute == 0 && vietnamTime.Hour > 0 && vietnamTime.Hour < 6)
                 {
+                    UpdateYTDlp();
                     await client.DisconnectAsync();
                     Thread.Sleep(1000 * 60);
                     Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "") { UseShellExecute = true });
