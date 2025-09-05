@@ -4,10 +4,13 @@ using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.FFMpeg;
+using SoundCloudExplode;
+using SoundCloudExplode.Exceptions;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -17,10 +20,14 @@ namespace EHVN.AronaBot.Commands
     {
         [GeneratedRegex("^((https?:)?\\/\\/)?((?<type>www|m|music)\\.)?((youtube\\.com|youtu\\.be))(\\/([\\w\\-]+\\?v=|embed\\/|v\\/|shorts\\/)?)(?<id>[\\w\\-]+)(\\S+)?$", RegexOptions.Compiled)]
         private static partial Regex GetRegexMatchYTLink();
-        [GeneratedRegex("^(?:(?:(?:spotify:|https?:\\/\\/)[a-z]*\\.?spotify\\.com(?:\\/embed)?\\/track\\/))(.[^\\?\\n]*)(\\?.*)?$", RegexOptions.Compiled)]
+        [GeneratedRegex("^(((spotify:|https?:\\/\\/)[a-z]*\\.?spotify\\.com(\\/embed)?\\/track\\/))(?<id>.[^\\?\\n]*)(\\?.*)?$", RegexOptions.Compiled)]
         private static partial Regex GetRegexMatchSpotifyLink();
+        [GeneratedRegex("^(https?:\\/\\/)?((((m|on)\\.)?soundcloud\\.com)|(snd\\.sc))\\/([\\w-]*)\\/?([\\w-]*)\\??.*$", RegexOptions.Compiled)]
+        private static partial Regex GetRegexMatchSoundCloudLink();
 
         static bool isDownloading = false;
+
+        static SoundCloudClient scClient = new SoundCloudClient(BotConfig.ReadonlyConfig.SoundCloudClientID);
 
         internal static void Register(ZaloClient client)
         {
@@ -62,6 +69,19 @@ namespace EHVN.AronaBot.Commands
                     .AsOptional()
                     )
                 .WithHandler(OnYouTubeDownload));
+            cmd.RegisterCommand(new CommandBuilder("scl")
+                .WithName("SoundCloud")
+                .AddCheck(groupCheck)
+                .WithDescription("Download songs from SoundCloud")
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("link")
+                    .WithDescription("Link to download")
+                    .WithType<string>()
+                    .WithDefaultValue("")
+                    .TakeRemainingText()
+                    .AsOptional()
+                    )
+                .WithHandler(OnSoundCloudDownload));
         }
 
         static async Task Help(CommandContext ctx)
@@ -246,7 +266,7 @@ namespace EHVN.AronaBot.Commands
                 Process? zotify = Process.Start(new ProcessStartInfo
                 {
                     FileName = @"Tools\zotify\Zotify.exe",
-                    Arguments = $"--disable-song-archive true --save-credentials false --disable-directory-archives true --root-path \"{tempPath}\" --download-lyrics false --codec mp3 --output \"{{artist}} - {{song_name}}\" https://open.spotify.com/track/{match.Groups[1].Value}",
+                    Arguments = $"--disable-song-archive true --save-credentials false --disable-directory-archives true --root-path \"{tempPath}\" --download-lyrics false --codec mp3 --output \"{{artist}} - {{song_name}}\" https://open.spotify.com/track/{match.Groups["id"].Value}",
                     WorkingDirectory = tempPath,
                     UseShellExecute = false
                 });
@@ -282,6 +302,80 @@ namespace EHVN.AronaBot.Commands
             finally
             {
                 Directory.Delete(tempPath, true);
+                isDownloading = false;
+            }
+        }
+
+        static async Task OnSoundCloudDownload(CommandContext ctx)
+        {
+            if (isDownloading)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(1));
+                return;
+            }
+            string link = ctx.Arguments[0] as string ?? "";
+            Match match = GetRegexMatchSoundCloudLink().Match(link);
+            if (!match.Success || link.Contains("/you/"))
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Link nhạc SoundCloud không hợp lệ rồi thầy ạ!");
+                return;
+            }
+            isDownloading = true;
+            await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+            await ctx.RespondAsync("Thầy đợi em một chút ạ!", TimeSpan.FromMinutes(1));
+            try
+            {
+                var track = await scClient.Tracks.GetAsync(link);
+                if (track is null)
+                {
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.RespondAsync("Không tìm thấy bài hát trên SoundCloud.", TimeSpan.FromMinutes(1));
+                    return;
+                }
+                if (track.Duration > 1000 * 60 * 30 || track.FullDuration > 1000 * 60 * 30)
+                {
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.RespondAsync("Bài hát quá dài để tải xuống.", TimeSpan.FromMinutes(1));
+                    return;
+                }
+                string title = track.Title ?? "";
+                string artist = track.User?.Username ?? "Unknown Artist";
+                string downloadLink = await scClient.Tracks.GetDownloadUrlAsync(track) ?? "";
+                if (string.IsNullOrEmpty(downloadLink))
+                {
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.RespondAsync("Không thể tải xuống bài hát.", TimeSpan.FromMinutes(1));
+                    return;
+                }
+                HttpClient httpClient = new HttpClient();
+                Stream nStream = await httpClient.GetStreamAsync(downloadLink);
+                MemoryStream memStream = new MemoryStream();
+                MemoryStream memStream2 = new MemoryStream();
+                await nStream.CopyToAsync(memStream);
+                memStream.Position = 0;
+                await memStream.CopyToAsync(memStream2);
+                memStream2.Position = 0;
+                nStream.Dispose();
+                //memStream(s) should be disposed by ZaloAttachment
+                using ZaloAttachment voice = ZaloAttachment.FromData($"{artist} - {title}.mp3", memStream).ConvertAudioToM4A();
+                using ZaloAttachment file = ZaloAttachment.FromData($"{artist} - {title}.mp3", memStream2).AsRawFile();
+                await ctx.Thread.SendMessagesAsync(new ZaloMessageBuilder()
+                    .AddAttachment(voice)
+                    .AddAttachment(file)
+                    );
+                await ctx.Message.RemoveAllReactionsAsync();
+                await ctx.Message.AddReactionAsync("/-ok");
+            }
+            catch (TrackUnavailableException)
+            {
+                await ctx.Message.RemoveAllReactionsAsync();
+                await ctx.RespondAsync("Bài hát không khả dụng để tải xuống.", TimeSpan.FromMinutes(1));
+                return;
+            }
+            finally
+            {
                 isDownloading = false;
             }
         }

@@ -197,6 +197,7 @@ namespace EHVN.AronaBot.Commands
             string systemInfo = Formatter.FontSizeLarge(Formatter.Bold("Thông tin hệ thống:")) + '\n' + SystemInfo.Get();
             string curentProcessInfo = ProcessInfo.Get(Process.GetCurrentProcess());
             systemInfo += '\n' + Formatter.FontSizeLarge(Formatter.Bold("Thông tin tiến trình:")) + '\n' + curentProcessInfo;
+            systemInfo += '\n' + Formatter.FontSizeMedium(Formatter.Bold("Phiên bản thư viện:\n")) + "ZepLaoSharp v" + ZaloClient.VersionString;
             await ctx.RespondAsync(systemInfo);
         }
 

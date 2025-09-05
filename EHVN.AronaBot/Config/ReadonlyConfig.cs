@@ -17,6 +17,9 @@ namespace EHVN.AronaBot.Config
         [JsonInclude, JsonPropertyName("TokenSpotify")]
         internal string SpotifyToken { get; set; } = "";
 
+        [JsonInclude, JsonPropertyName("SoundCloudClientID")]
+        internal string SoundCloudClientID { get; set; } = "";
+
         //TODO: listen to multiple servers
 
         [JsonInclude, JsonPropertyName("NRO")]

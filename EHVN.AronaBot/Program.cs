@@ -23,9 +23,15 @@ namespace EHVN.AronaBot
 #pragma warning restore CS8618
         static ZaloClientBuilder clientBuilder = new ZaloClientBuilder();
         internal static DateTime startTime;
+        static Mutex mutex = new Mutex(true, "EHVN.AronaBot");
 
         static async Task Main(string[] args)
         {
+            if (!mutex.WaitOne(TimeSpan.Zero, true))
+            {
+                Console.WriteLine("Another instance is already running. Exiting...");
+                return;
+            }
             if (!Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify")))
                 Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify"));
             if (!File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json")))
@@ -38,17 +44,17 @@ namespace EHVN.AronaBot
                 };
                 File.WriteAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json"), obj.ToJsonString());
             }
-            DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-            if (vietnamTime.Hour < 6)
-                Console.WriteLine("Waiting until 06:00 AM to start...");
-            do
-            {
-                vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-                if (vietnamTime.Hour >= 6)
-                    break;
-                Thread.Sleep(1000 * 20);
-            }
-            while (true);
+            //DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+            //if (vietnamTime.Hour < 6)
+            //    Console.WriteLine("Waiting until 06:00 AM to start...");
+            //do
+            //{
+            //    vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+            //    if (vietnamTime.Hour >= 6)
+            //        break;
+            //    Thread.Sleep(1000 * 20);
+            //}
+            //while (true);
 
             startTime = DateTime.UtcNow;
             new Thread(CheckRestart).Start();
