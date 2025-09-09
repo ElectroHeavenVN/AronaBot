@@ -45,6 +45,7 @@
     <PackageReference Include="System.Linq.Async" Version="6.0.3" />
     <PackageReference Include="System.Text.Json" Version="9.0.8" />
     <PackageReference Include="TagLibSharp" Version="2.3.0" />
+    <PackageReference Include="ZingMP3Explode" Version="1.0.1" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">

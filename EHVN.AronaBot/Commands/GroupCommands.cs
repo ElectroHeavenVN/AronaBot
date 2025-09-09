@@ -13,6 +13,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using ZingMP3Explode;
 
 namespace EHVN.AronaBot.Commands
 {
@@ -24,10 +25,13 @@ namespace EHVN.AronaBot.Commands
         private static partial Regex GetRegexMatchSpotifyLink();
         [GeneratedRegex("^(https?:\\/\\/)?((((m|on)\\.)?soundcloud\\.com)|(snd\\.sc))\\/([\\w-]*)\\/?([\\w-]*)\\??.*$", RegexOptions.Compiled)]
         private static partial Regex GetRegexMatchSoundCloudLink();
+        [GeneratedRegex(@"zingmp3\.vn\/(bai-hat|video-clip)\/(.*\/?)(Z[A-Z0-9]{7})\.html", RegexOptions.Compiled)]
+        private static partial Regex GetRegexMatchZingMP3Link();
 
         static bool isDownloading = false;
 
         static SoundCloudClient scClient = new SoundCloudClient(BotConfig.ReadonlyConfig.SoundCloudClientID);
+        static ZingMP3Client? zClient;
 
         internal static void Register(ZaloClient client)
         {
@@ -82,6 +86,19 @@ namespace EHVN.AronaBot.Commands
                     .AsOptional()
                     )
                 .WithHandler(OnSoundCloudDownload));
+            cmd.RegisterCommand(new CommandBuilder("zmp3")
+                .WithName("SoundCloud")
+                .AddCheck(groupCheck)
+                .WithDescription("Download songs from Zing MP3")
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("link")
+                    .WithDescription("Link to download")
+                    .WithType<string>()
+                    .WithDefaultValue("")
+                    .TakeRemainingText()
+                    .AsOptional()
+                    )
+                .WithHandler(OnZingMP3Download));
         }
 
         static async Task Help(CommandContext ctx)
@@ -223,9 +240,9 @@ namespace EHVN.AronaBot.Commands
                 }
                 else
                 {
-                    using ZaloAttachment video = AttachmentUtils.FromVideoFile(filePath);
+                    using ZaloAttachment video = AttachmentUtils.FromVideoFile(filePath).WithGroupMediaTitle(Path.GetFileNameWithoutExtension(filePath).Replace($" [{id}]", ""));
                     await ctx.Thread.SendMessagesAsync(new ZaloMessageBuilder()
-                        .WithContent(Path.GetFileNameWithoutExtension(filePath).Replace($" [{id}]", ""))
+                        .GroupMediaMessages()
                         .AddAttachment(video)
                         );
                     await ctx.Message.RemoveAllReactionsAsync();
@@ -377,6 +394,140 @@ namespace EHVN.AronaBot.Commands
             finally
             {
                 isDownloading = false;
+            }
+        }
+
+        static async Task OnZingMP3Download(CommandContext ctx)
+        {
+            if (zClient is null)
+            {
+                zClient = new ZingMP3Client();
+                await zClient.InitializeAsync();
+            }
+            if (isDownloading)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(1));
+                return;
+            }
+            string link = ctx.Arguments[0] as string ?? "";
+            Match match = GetRegexMatchZingMP3Link().Match(link);
+            if (!match.Success || link.Contains("/you/"))
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Link nhạc Zing MP3 không hợp lệ rồi thầy ạ!");
+                return;
+            }
+            isDownloading = true;
+            await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+            await ctx.RespondAsync("Thầy đợi em một chút ạ!", TimeSpan.FromMinutes(1));
+            string tempPath = Path.Combine(Path.GetTempPath(), "zmp3", Utils.RandomString(10));
+            if (!Directory.Exists(tempPath))
+                Directory.CreateDirectory(tempPath);
+            try
+            {
+                string type = match.Groups[1].Value;
+                string id = match.Groups[3].Value;
+                if (type == "bai-hat")
+                {
+                    var song = await zClient.Songs.GetAsync(link);
+                    if (song.Duration > 60 * 30)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("Bài hát quá dài để tải xuống.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+                    string title = song.Title;
+                    string artist = song.AllArtistsNames;
+                    string downloadLink = await zClient.Songs.GetAudioStreamUrlAsync(link);
+                    if (string.IsNullOrEmpty(downloadLink))
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("Không thể tải xuống bài hát.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+                    HttpClient httpClient = new HttpClient();
+                    Stream nStream = await httpClient.GetStreamAsync(downloadLink);
+                    MemoryStream memStream = new MemoryStream();
+                    MemoryStream memStream2 = new MemoryStream();
+                    await nStream.CopyToAsync(memStream);
+                    memStream.Position = 0;
+                    await memStream.CopyToAsync(memStream2);
+                    memStream2.Position = 0;
+                    nStream.Dispose();
+                    using ZaloAttachment voice = ZaloAttachment.FromData($"{artist} - {title}.mp3", memStream).ConvertAudioToM4A();
+                    using ZaloAttachment file = ZaloAttachment.FromData($"{artist} - {title}.mp3", memStream2).AsRawFile();
+                    await ctx.Thread.SendMessagesAsync(new ZaloMessageBuilder()
+                        .AddAttachment(voice)
+                        .AddAttachment(file)
+                        );
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.Message.AddReactionAsync("/-ok");
+                }
+                else if (type == "video-clip")
+                {
+                    var video = await zClient.Videos.GetAsync(link);
+                    if (video.Duration > 60 * 30)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("Video quá dài để tải xuống.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+                    string title = video.Title;
+                    string artist = video.AllArtistsNames;
+                    string downloadLink = video.VideoStream.GetBestHLS();
+                    if (string.IsNullOrEmpty(downloadLink))
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("Không tìm thấy liên kết tải xuống video.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+
+                    Process? yt_dlp = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = @"Tools\yt-dlp\yt-dlp.exe",
+                        Arguments = $"--remux-video mp4 --embed-metadata --no-mtime --paths {tempPath} -- {downloadLink}",
+                        UseShellExecute = false,
+                    });
+                    if (yt_dlp is null)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("Không thể khởi động yt-dlp.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+                    await yt_dlp.WaitForExitAsync();
+                    if (yt_dlp.ExitCode != 0)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("yt-dlp đã gặp lỗi khi tải xuống MV.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+                    if (new DirectoryInfo(tempPath).GetFiles().Length == 0)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.RespondAsync("Không tìm thấy tệp sau khi tải xuống.", TimeSpan.FromMinutes(1));
+                        return;
+                    }
+                    string filePath = new DirectoryInfo(tempPath).GetFiles().First().FullName;
+                    using ZaloAttachment videoAtt = AttachmentUtils.FromVideoFile(filePath).WithGroupMediaTitle($"{video.AllArtistsNames} - {video.Title}");
+                    await ctx.Thread.SendMessagesAsync(new ZaloMessageBuilder()
+                        .GroupMediaMessages()
+                        .AddAttachment(videoAtt)
+                        );
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.Message.AddReactionAsync("/-ok");
+                }
+                else
+                {
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.RespondAsync("Link không hợp lệ.", TimeSpan.FromMinutes(1));
+                    return;
+                }
+            }
+            finally
+            {
+                isDownloading = false;
+                Directory.Delete(tempPath, true);
             }
         }
     }
