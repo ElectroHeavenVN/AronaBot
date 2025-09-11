@@ -60,14 +60,14 @@ namespace EHVN.AronaBot
             new Thread(CheckRestart).Start();
             InitializeClient();
             FFMpegUtils.ClearCache();
+#if !DEBUG
             FFMpegUtils.FFMpegPath = "Tools\\ffmpeg";
+#endif
             client = clientBuilder.Build();
             await client.ConnectAsync();
             Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
-#if !DEBUG
             AdminCommands.Register(client);
             GroupCommands.Register(client);
-#endif
             client.EventListeners.Disconnected += EventListeners_Disconnected;
             client.EventListeners.GroupMessageReceived += EventListeners_GroupMessageReceived;
             //DBOWorldChat.Initialize();
