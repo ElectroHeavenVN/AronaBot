@@ -1,17 +1,15 @@
 ﻿using EHVN.AronaBot.Config;
-using EHVN.AronaBot.Functions.AI;
-using System.Collections.Generic;
+using EHVN.ZepLaoSharp.Net.LongPolling;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace EHVN.AronaBot
 {
+    [JsonSerializable(typeof(LongPollingClientOptions))]
     [JsonSerializable(typeof(ReadonlyConfig))]
     [JsonSerializable(typeof(WritableConfig))]
     [JsonSerializable(typeof(DBOConfig))]
-    [JsonSerializable(typeof(AIMessage))]
-    [JsonSerializable(typeof(List<AIMessage>))]
     internal partial class SourceGenerationContext : JsonSerializerContext
     {
         static SourceGenerationContext()

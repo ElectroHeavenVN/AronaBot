@@ -71,24 +71,37 @@ namespace EHVN.AronaBot.Functions
         //TODO: improve keep-alive logic, handle daily maintenance, disconnections, etc.
         static async Task LoginAndKeepAliveAsync(ISession session)
         {
-            await session.ConnectAsync();
-            IMessageWriter writer = session.MessageWriter;
-            writer.SetClientType();
-            await Task.Delay(2000);
-            writer.ImageSource();
-            await Task.Delay(1000);
-            writer.Login(BotConfig.ReadonlyConfig.DBO.Account, BotConfig.ReadonlyConfig.DBO.Password, 0);
-            await Task.Delay(3000);
-            writer.ClientOk();
-            writer.FinishUpdate();
-            await Task.Delay(1000);
-            writer.FinishLoadMap();
-            await Task.Delay(30000);
             while (true)
             {
-                writer.RequestChangeZone(session.Player.Location?.zoneId ?? 0);
-                await Task.Delay((1000 + Random.Shared.Next(-200, 201)) * 30);
+                try
+                {
+                    await session.ConnectAsync();
+                    IMessageWriter writer = session.MessageWriter;
+                    writer.SetClientType();
+                    await Task.Delay(2000);
+                    writer.ImageSource();
+                    await Task.Delay(1000);
+                    writer.Login(BotConfig.ReadonlyConfig.DBO.Account, BotConfig.ReadonlyConfig.DBO.Password, 0);
+                    await Task.Delay(3000);
+                    writer.ClientOk();
+                    writer.FinishUpdate();
+                    await Task.Delay(1000);
+                    writer.FinishLoadMap();
+                    await Task.Delay(30000);
+                    while (true)
+                    {
+                        writer.RequestChangeZone(session.Player.Location?.zoneId ?? 0);
+                        await Task.Delay((1000 + Random.Shared.Next(-200, 201)) * 30);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    session.Disconnect();
+                    await Task.Delay(1000 * 30);
+                }
             }
+
         }
 
         internal static async Task SendMessageToGroupsAsync(string name, string msg)

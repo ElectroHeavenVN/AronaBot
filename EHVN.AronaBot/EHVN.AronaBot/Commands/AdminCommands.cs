@@ -82,6 +82,20 @@ namespace EHVN.AronaBot.Commands
                 .WithDescription("Không gửi thông báo game trong nhóm hiện tại")
                 .WithHandler(RemoveCurrentGroupGameNotif)
             );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("disconnect")
+                .WithName("Disconnect")
+                .WithDescription("Ngắt kết nối")
+                .WithHandler(Disconnect)
+            );
+        }
+
+        private static async Task Disconnect(CommandContext ctx)
+        {
+            await ctx.Message.AddReactionAsync("/-ok");
+            await ctx.Client.DisconnectAsync();
         }
 
         private static async Task AddCurrentGroupGameNotif(CommandContext ctx)

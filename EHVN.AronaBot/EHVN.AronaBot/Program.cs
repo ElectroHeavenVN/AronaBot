@@ -1,26 +1,29 @@
 ﻿using EHVN.AronaBot.Commands;
 using EHVN.AronaBot.Config;
 using EHVN.AronaBot.Functions;
-using EHVN.AronaBot.Functions.AI;
+using EHVN.AronaBot.Functions.AI.CharacterAI;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Auth;
-using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.Events;
 using EHVN.ZepLaoSharp.FFMpeg;
+using EHVN.ZepLaoSharp.Logging;
+using EHVN.ZepLaoSharp.Net.LongPolling;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace EHVN.AronaBot
 {
-    internal class Program
+    internal static class Program
     {
 #pragma warning disable CS8618
         internal static ZaloClient client;
 #pragma warning restore CS8618
+        static LongPollingClientOptions options = new LongPollingClientOptions();
         static ZaloClientBuilder clientBuilder = new ZaloClientBuilder();
         internal static DateTime startTime;
         static Mutex mutex = new Mutex(true, "EHVN.AronaBot");
@@ -44,18 +47,17 @@ namespace EHVN.AronaBot
                 };
                 File.WriteAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json"), obj.ToJsonString());
             }
-            //DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-            //if (vietnamTime.Hour < 6)
-            //    Console.WriteLine("Waiting until 06:00 AM to start...");
-            //do
-            //{
-            //    vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
-            //    if (vietnamTime.Hour >= 6)
-            //        break;
-            //    Thread.Sleep(1000 * 20);
-            //}
-            //while (true);
-
+            DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+            if (vietnamTime.Hour < 6)
+                Console.WriteLine("Waiting until 06:00 AM to start...");
+            do
+            {
+                vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
+                if (vietnamTime.Hour >= 6)
+                    break;
+                Thread.Sleep(1000 * 20);
+            }
+            while (true);
             startTime = DateTime.UtcNow;
             new Thread(CheckRestart).Start();
             InitializeClient();
@@ -76,12 +78,16 @@ namespace EHVN.AronaBot
 
         static void UpdateYTDlp()
         {
-            Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = @"Tools\yt-dlp\yt-dlp.exe",
-                Arguments = "-U",
-                UseShellExecute = false,
-            });
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = @"Tools\yt-dlp\yt-dlp.exe",
+                    Arguments = "-U",
+                    UseShellExecute = false,
+                });
+            }
+            catch { }
         }
 
         static async void CheckRestart()
@@ -93,7 +99,7 @@ namespace EHVN.AronaBot
                 {
                     UpdateYTDlp();
                     await client.DisconnectAsync();
-                    Thread.Sleep(1000 * 60);
+                    Thread.Sleep(1000 * 30);
                     Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "") { UseShellExecute = true });
                     Environment.Exit(0);
                 }
@@ -101,33 +107,46 @@ namespace EHVN.AronaBot
             }
         }
 
-        static async Task EventListeners_Disconnected(ZaloClient client, GatewayDisconnectedEventArgs args)
+        static async Task EventListeners_Disconnected(ZaloClient client, DisconnectedEventArgs args)
         {
+            File.WriteAllText(@"Data\lp_options.json", JsonSerializer.Serialize(options, SourceGenerationContext.Default.LongPollingClientOptions));
             await Task.Delay(60000);
             await client.ConnectAsync();
         }
 
         static async Task EventListeners_GroupMessageReceived(ZaloClient sender, GroupMessageReceivedEventArgs args)
         {
-            await ChatAI.GroupMessageReceived(sender, args);
+            await CAIMain.GroupMessageReceived(sender, args);
         }
 
         static void InitializeClient()
         {
+            try
+            {
+                options = JsonSerializer.Deserialize(File.ReadAllText(@"Data\lp_options.json"), SourceGenerationContext.Default.LongPollingClientOptions) ?? new LongPollingClientOptions();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to load lp_options.json, using default options. Error: " + ex.Message);
+            }
+            options.AutoMarkAsDelivered = true;
+            options.FilterMode = ZepLaoSharp.Net.RealtimeClientOptions.ThreadFilterMode.Inclusive;
+            options.FilterThreadIDs = [8566925697964157802];
             JsonNode node = JsonNode.Parse(File.ReadAllText(@"Data\credentials-pc.json")) ?? throw new Exception("Missing credentials-pc.json");
             clientBuilder = clientBuilder
-                .WithMaxTimeCache(TimeSpan.FromHours(3))
+                //.WithLogger(new DefaultLogger(LogLevel.Trace))
+                .WithMaxTimeCache(TimeSpan.FromDays(1))
+                .UseLongPolling(options)
                 .WithCredential(new LoginCredentialBuilder()
-                    .UsePCCredential(ZepLaoSharp.Auth.OperatingSystem.Windows)
-                    .WithAPIType(node["api_type"]?.GetValue<int>() ?? 0)
-                    .WithAPIVersion(node["client_version"]?.GetValue<int>() ?? 0)
+                    .UsePCCredential(ZaloOperatingSystem.Windows)
+                    .WithClientType(ZaloClientType.Windows)
+                    .WithClientVersion(node["client_version"]?.GetValue<int>() ?? 0)
                     .WithComputerName(node["computer_name"]?.GetValue<string>() ?? "")
                     .WithIMEI(node["imei"]?.GetValue<string>() ?? "")
                     .WithToken(node["token"]?.GetValue<string>() ?? "")
-                    .WithLanguage(Language.Vietnamese)
+                    .WithLanguage(ZaloLanguage.Vietnamese)
                     .Build()
-                    );
-            //ZaloLogger.SetLogger(new DefaultLogger(LogLevel.Trace));
+                );
         }
     }
 }
