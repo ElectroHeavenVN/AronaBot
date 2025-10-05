@@ -1,3 +1,3 @@
-[submodule "DataNRO"]
-	path = DataNRO
+[submodule "EHVN.AronaBot/DataNRO"]
+	path = EHVN.AronaBot/DataNRO
 	url = https://github.com/ElectroHeavenVN/DataNRO/
