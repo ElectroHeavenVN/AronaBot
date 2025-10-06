@@ -1,4 +1,7 @@
 ﻿using EHVN.AronaBot.Config;
+using Matroska;
+using Matroska.Enumerations;
+using Matroska.Models;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Bmp;
 using MetadataExtractor.Formats.Gif;
@@ -51,40 +54,82 @@ namespace EHVN.AronaBot.Miscellaneous
             return selfWithoutAccent.Contains(valueWithoutAccent, comparisonType);
         }
 
-        internal static bool IsImage(byte[] imageData)
+        internal static bool IsImage(Stream imgStream)
         {
-            using MemoryStream stream = new MemoryStream(imageData);
-            IEnumerable<MetadataExtractor.Directory> directories = ImageMetadataReader.ReadMetadata(stream);
-            return directories.Any(directory =>
-                directory is JpegDirectory ||
-                directory is PngDirectory ||
-                directory is WebPDirectory ||
-                directory is GifHeaderDirectory ||
-                directory is BmpHeaderDirectory);
+            try
+            {
+                IEnumerable<MetadataExtractor.Directory> directories = ImageMetadataReader.ReadMetadata(imgStream);
+                return directories.Any(directory =>
+                    directory is JpegDirectory ||
+                    directory is PngDirectory ||
+                    directory is WebPDirectory ||
+                    directory is GifHeaderDirectory ||
+                    directory is BmpHeaderDirectory);
+            }
+            finally
+            {
+                imgStream.Position = 0;
+            }
         }
-        
-        internal static bool TryGetVideoMetadata(byte[] videoData, out int width, out int height, out long duration)
+
+        internal static bool TryGetVideoMetadata(string ext, Stream vidStream, out int width, out int height, out long duration)
         {
             width = 0;
             height = 0;
             duration = 0;
-            using MemoryStream stream = new MemoryStream(videoData);
-            IEnumerable<MetadataExtractor.Directory> directories = ImageMetadataReader.ReadMetadata(stream);
-            bool sizeSet = false;
-            bool durationSet = false;
-            foreach (var directory in directories)
-                if (directory is QuickTimeTrackHeaderDirectory qtTrackHeaderDirectory && !sizeSet)
+            try
+            {
+                if (ext.EndsWith("webm", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    width = qtTrackHeaderDirectory.GetInt32(QuickTimeTrackHeaderDirectory.TagWidth);
-                    height = qtTrackHeaderDirectory.GetInt32(QuickTimeTrackHeaderDirectory.TagHeight);
-                    sizeSet = true;
+                    MatroskaDocument doc = MatroskaSerializer.Deserialize(vidStream);
+                    duration = (long)(doc.Segment.Info.Duration ?? 0L);
+                    foreach (var track in doc.Segment.Tracks?.TrackEntries ?? [])
+                    {
+                        if (track.TrackType != (ulong)TrackType.Video)
+                            continue;
+                        width = (int)(track.Video?.PixelWidth ?? 0);
+                        height = (int)(track.Video?.PixelHeight ?? 0);
+                        break;
+                    }
+                    return width > 0 && height > 0 && duration > 0;
                 }
-                else if (directory is QuickTimeMovieHeaderDirectory qtMovieHeaderDirectory && !durationSet)
+                else
                 {
-                    duration = (long)((TimeSpan)qtMovieHeaderDirectory.GetObject(QuickTimeTrackHeaderDirectory.TagDuration)!).TotalMilliseconds;
-                    durationSet = true;
+                    using var file = TagLib.File.Create(new FileBytesAbstraction("file." + ext.TrimStart('.'), vidStream));
+                    width = file.Properties.VideoWidth;
+                    height = file.Properties.VideoHeight;
+                    duration = (long)file.Properties.Duration.TotalMilliseconds;
+                    return width > 0 && height > 0 && duration > 0;
                 }
-            return sizeSet && durationSet;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                vidStream.Position = 0;
+            }
+        }
+
+        internal static bool CanExecuteDirectly(string executableName)
+        {
+            if (File.Exists(executableName))
+                return true;
+            if (OperatingSystem.IsWindows())
+                executableName = Path.ChangeExtension(executableName, ".exe");
+            string? pathVariable = Environment.GetEnvironmentVariable("PATH");
+            if (string.IsNullOrEmpty(pathVariable))
+                return false;
+            char separator = OperatingSystem.IsWindows() ? ';' : ':';
+            var paths = pathVariable.Split(separator, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var path in paths)
+            {
+                string fullPath = Path.Combine(path.Trim(), executableName);
+                if (File.Exists(fullPath))
+                    return true;
+            }
+            return false;
         }
 
         static string ReplaceVietnameseChars(this string text)

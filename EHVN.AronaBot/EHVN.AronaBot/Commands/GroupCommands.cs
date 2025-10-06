@@ -4,18 +4,22 @@ using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.FFMpeg;
+using GTranslate.Translators;
 using SoundCloudExplode;
 using SoundCloudExplode.Exceptions;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using ZingMP3Explode;
-using GTranslate.Translators;
-using System.Threading;
 
 namespace EHVN.AronaBot.Commands
 {
@@ -31,7 +35,10 @@ namespace EHVN.AronaBot.Commands
         private static partial Regex GetRegexMatchZingMP3Link();
 
         static bool isDownloading = false;
-        static HttpClient httpClient = new HttpClient();
+        static HttpClient httpClient = new HttpClient(new HttpClientHandler()
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        });
         static SemaphoreSlim cmdSemaphore = new SemaphoreSlim(1, 1);
         static SoundCloudClient? scClient;
         static ZingMP3Client? zClient;
@@ -90,7 +97,7 @@ namespace EHVN.AronaBot.Commands
                     )
                 .WithHandler(OnSoundCloudDownload));
             cmd.RegisterCommand(new CommandBuilder("zmp3")
-                .WithName("SoundCloud")
+                .WithName("Zing MP3")
                 .AddCheck(groupCheck)
                 .WithDescription("Download songs from Zing MP3")
                 .AddParameter(new CommandParameterBuilder()
@@ -113,6 +120,14 @@ namespace EHVN.AronaBot.Commands
                     .TakeRemainingText()
                     )
                 .WithHandler(OnTTS));
+
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(groupCheck)
+                .WithCommand("stk")
+                .WithName("Make Sticker")
+                .WithDescription("Tạo sticker từ ảnh hoặc video")
+                .WithHandler(MakeSticker)
+            );
         }
 
         static async Task Cooldown()
@@ -206,9 +221,12 @@ namespace EHVN.AronaBot.Commands
                     string extArg = "-f \"bestvideo+bestaudio\" -S res:1080 --remux-video mp4 --embed-thumbnail --embed-metadata --no-mtime";
                     if (isMusic)
                         extArg = "-f bestaudio --embed-thumbnail --embed-metadata --no-mtime --extract-audio --audio-quality 0";
+                    string fileName = "yt-dlp.exe";
+                    if (!Utils.CanExecuteDirectly(fileName))
+                        fileName = @"Tools\yt-dlp\yt-dlp.exe";
                     Process? yt_dlp = Process.Start(new ProcessStartInfo
                     {
-                        FileName = @"Tools\yt-dlp\yt-dlp.exe",
+                        FileName = fileName,
                         Arguments = $"{extArg} --paths {tempPath} --force-overwrites --match-filter \"duration<1800\" -- {id}",
                         WorkingDirectory = tempPath,
                         UseShellExecute = false
@@ -322,9 +340,12 @@ namespace EHVN.AronaBot.Commands
                     Directory.CreateDirectory(tempPath);
                 try
                 {
+                    string fileName = "Zotify.exe";
+                    if (!Utils.CanExecuteDirectly(fileName))
+                        fileName = @"Tools\zotify\Zotify.exe";
                     Process? zotify = Process.Start(new ProcessStartInfo
                     {
-                        FileName = @"Tools\zotify\Zotify.exe",
+                        FileName = fileName,
                         Arguments = $"--disable-song-archive true --save-credentials false --disable-directory-archives true --root-path \"{tempPath}\" --download-lyrics false --codec mp3 --output \"{{artist}} - {{song_name}}\" https://open.spotify.com/track/{match.Groups["id"].Value}",
                         WorkingDirectory = tempPath,
                         UseShellExecute = false
@@ -546,10 +567,12 @@ namespace EHVN.AronaBot.Commands
                             await ctx.RespondAsync("Không tìm thấy liên kết tải xuống video.", TimeSpan.FromMinutes(1));
                             return;
                         }
-
+                        string fileName = "yt-dlp.exe";
+                        if (!Utils.CanExecuteDirectly(fileName))
+                            fileName = @"Tools\yt-dlp\yt-dlp.exe";
                         Process? yt_dlp = Process.Start(new ProcessStartInfo
                         {
-                            FileName = @"Tools\yt-dlp\yt-dlp.exe",
+                            FileName = fileName,
                             Arguments = $"--remux-video mp4 --embed-metadata --no-mtime --paths {tempPath} -- {downloadLink}",
                             UseShellExecute = false,
                         });
@@ -625,6 +648,182 @@ namespace EHVN.AronaBot.Commands
                 audioStream.Position = 0;
                 using ZaloAttachment voice = ZaloAttachment.FromData("tts.m4a", audioStream).ConvertAudioToM4A();
                 await ctx.Thread.SendMessageAsync(voice);
+            }
+            finally
+            {
+                await Cooldown();
+            }
+        }
+
+        static async Task MakeSticker(CommandContext ctx)
+        {
+            if (!cmdSemaphore.Wait(0))
+                return;
+            try
+            {
+                string contentUrl = "";
+                string thumbnailUrl = "";
+                long fileSize = 0;
+                int width = 0, height = 0;
+                TimeSpan videoDuration = TimeSpan.Zero;
+                bool isVideo = false;
+                bool isFile = false;
+                string ext = "";
+                bool isGIF = false;
+                IZaloMessageContent? content = ctx.Message.Content;
+                if (ctx.Message.Quote?.Content is not null)
+                    content = ctx.Message.Quote.Content;
+
+                if (content is ZaloImageContent imgContent)
+                {
+                    if (imgContent.Action == "recommend.gif")
+                        isGIF = true;
+                    thumbnailUrl = imgContent.ThumbnailUrl;
+                    width = imgContent.Width;
+                    height = imgContent.Height;
+                    fileSize = imgContent.FileSize;
+                    contentUrl = imgContent.HDUrl;
+                    if (string.IsNullOrEmpty(contentUrl))
+                        contentUrl = imgContent.ImageUrl;
+                    if (string.IsNullOrEmpty(contentUrl))
+                        contentUrl = imgContent.SmallUrl;
+                }
+                else if (content is ZaloVideoContent videoContent)
+                {
+                    thumbnailUrl = videoContent.ThumbnailUrl;
+                    width = videoContent.Width;
+                    height = videoContent.Height;
+                    contentUrl = videoContent.VideoUrl;
+                    videoDuration = videoContent.Duration;
+                    fileSize = videoContent.FileSize;
+                    isVideo = true;
+                }
+                else if (content is ZaloFileContent fileContent && fileContent.FileType == ZaloFileType.File)
+                {
+                    isFile = true;
+                    contentUrl = fileContent.Url;
+                    fileSize = fileContent.FileSize;
+                    ext = fileContent.FileExtension;
+                    if (fileContent.FileExtension == "mp4")
+                        isVideo = true;
+                    if (fileContent.FileExtension == "gif")
+                        isGIF = true;
+                }
+                if (isVideo && !isFile && videoDuration.TotalSeconds > 10 && !BotConfig.GetAllAdminIDs().Contains(ctx.User.ID))
+                {
+                    await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                    await ctx.Message.ReplyAsync("Chỉ có quản trị viên mới có quyền tạo sticker từ video dài hơn 10 giây!");
+                    return;
+                }
+                if (isFile)
+                {
+                    await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                    _ = Task.Run(async () =>
+                    {
+                        using MemoryStream memStream = new MemoryStream();
+                        using (Stream content = await httpClient.GetStreamAsync(contentUrl))
+                        {
+                            await content.CopyToAsync(memStream);
+                        }
+                        memStream.Position = 0;
+                        if (isVideo && (!Utils.TryGetVideoMetadata(ext, memStream, out width, out height, out long duration) || duration > 10000) && !BotConfig.GetAllAdminIDs().Contains(ctx.User.ID))
+                        {
+                            await ctx.Message.RemoveAllReactionsAsync();
+                            await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                            await ctx.Message.ReplyAsync("Chỉ có quản trị viên mới có quyền tạo sticker từ video dài hơn 10 giây!");
+                            return;
+                        }
+                        else if (isVideo)
+                        {
+                            using ZaloAttachment attachment = AttachmentUtils.FromVideoData(memStream).ConvertVideoToWebp().AsSticker();
+                            //await ctx.Thread.SendMessageAsync(attachment);
+                            Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.Unknown, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                            await ctx.Message.RemoveAllReactionsAsync();
+                            await ctx.Message.AddReactionAsync("/-ok");
+                            return;
+                        }
+                        else if (!Utils.IsImage(memStream))
+                        {
+                            await ctx.Message.RemoveAllReactionsAsync();
+                            await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                            await ctx.Message.ReplyAsync("Ảnh không hợp lệ!");
+                            return;
+                        }
+                        else
+                        {
+                            using ZaloAttachment attachment = ZaloAttachment.FromData("image.png", memStream).AsSticker();
+                            if (!isGIF)
+                                await ctx.Thread.SendMessageAsync(attachment);
+                            else
+                            {
+                                attachment.ConvertGIFToWebp();
+                                Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
+                                await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                            }
+                            await ctx.Message.RemoveAllReactionsAsync();
+                            await ctx.Message.AddReactionAsync("/-ok");
+                        }
+                    }).ConfigureAwait(false);
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(contentUrl) || string.IsNullOrEmpty(thumbnailUrl))
+                    {
+                        await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                        await ctx.Message.ReplyAsync("Ảnh không hợp lệ hoặc không có ảnh nào được đính kèm!");
+                        return;
+                    }
+                    if (!isVideo)
+                    {
+                        await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                        if (!isGIF)
+                        {
+                            using ZaloAttachment attachment = ZaloAttachment.FromUrl(Path.ChangeExtension(contentUrl, Path.GetExtension(contentUrl) + "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), "image.png", fileSize, Encoding.ASCII.GetString(MD5.HashData([])), Path.ChangeExtension(thumbnailUrl, Path.GetExtension(thumbnailUrl) + "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), width, height).AsSticker();
+                            await ctx.Thread.SendMessageAsync(attachment);
+                        }
+                        else
+                        {
+                            MemoryStream memoryStream = new MemoryStream();
+                            using (Stream imgStream = await httpClient.GetStreamAsync(contentUrl))
+                            {
+                                await imgStream.CopyToAsync(memoryStream);
+                            }
+                            memoryStream.Position = 0;
+                            if (!Utils.IsImage(memoryStream))
+                            {
+                                await ctx.Message.RemoveAllReactionsAsync();
+                                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                                await ctx.Message.ReplyAsync("Ảnh không hợp lệ!");
+                                return;
+                            }
+                            using ZaloAttachment attachment = ZaloAttachment.FromData("image." + (isGIF ? "gif" : "png"), memoryStream).AsSticker().WithStickerType(ZaloStickerImageType.AISticker).ConvertGIFToWebp();
+                            Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                        }
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        await ctx.Message.AddReactionAsync("/-ok");
+                    }
+                    else
+                    {
+                        await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                        _ = Task.Run(async () =>
+                        {
+                            using MemoryStream memStream = new MemoryStream();
+                            using (Stream videoStream = await httpClient.GetStreamAsync(contentUrl))
+                            {
+                                await videoStream.CopyToAsync(memStream);
+                            }
+                            memStream.Position = 0;
+                            using ZaloAttachment attachment = AttachmentUtils.FromVideoData(memStream).ConvertVideoToWebp().AsSticker();
+                            //await ctx.Thread.SendMessageAsync(attachment);
+                            Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.Unknown, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                            await ctx.Message.RemoveAllReactionsAsync();
+                            await ctx.Message.AddReactionAsync("/-ok");
+                        }).ConfigureAwait(false);
+                    }
+                }
             }
             finally
             {

@@ -90,6 +90,68 @@ namespace EHVN.AronaBot.Commands
                 .WithDescription("Ngắt kết nối")
                 .WithHandler(Disconnect)
             );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .WithCommand("getlink")
+                .AddAlias("gl")
+                .WithName("Get link")
+                .WithDescription("Lấy link đính kèm từ tin nhắn được nhắc đến")
+                .WithHandler(GetLink)
+            );
+        }
+
+        static async Task GetLink(CommandContext ctx)
+        {
+            if (ctx.Message.Quote is null)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Thầy vui lòng nhắc đến tin nhắn có link đính kèm để sử dụng lệnh này ạ!", TimeSpan.FromMinutes(10));
+                return;
+            }
+            string link = "";
+            if (ctx.Message.Quote.Content is ZaloEmbeddedLinkContent linkContent)
+            {
+                link = linkContent.URL;
+            }
+            else if (ctx.Message.Quote.Content is ZaloImageContent imgContent)
+            {
+                if (ctx.Message.Quote.Content is ZaloStickerImageContent stickerContent)
+                {
+                    link = stickerContent.WebpUrl;
+                }
+                if (string.IsNullOrEmpty(link))
+                    link = imgContent.HDUrl;
+                if (string.IsNullOrEmpty(link))
+                    link = imgContent.SmallUrl;
+                if (string.IsNullOrEmpty(link))
+                    link = imgContent.ImageUrl;
+                if (string.IsNullOrEmpty(link))
+                    link = imgContent.ThumbnailUrl;
+            }
+            else if (ctx.Message.Quote.Content is ZaloVideoContent videoContent)
+            {
+                link = videoContent.VideoUrl;
+            }
+            else if (ctx.Message.Quote.Content is ZaloVoiceContent voiceContent)
+            {
+                link = voiceContent.VoiceUrl;
+            }
+            else if (ctx.Message.Quote.Content is ZaloContactCardContent contactCardContent)
+            {
+                link = contactCardContent.QRCodeUrl;
+            }
+            else if (ctx.Message.Quote.Content is ZaloFileContent fileContent)
+            {
+                link = fileContent.Url;
+            }
+            if (string.IsNullOrEmpty(link))
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Tin nhắn được nhắc đến không có đính kèm thầy ạ!");
+                return;
+            }
+            await ctx.Message.AddReactionAsync("/-ok");
+            await ctx.RespondAsync("Link: " + link);
         }
 
         private static async Task Disconnect(CommandContext ctx)

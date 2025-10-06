@@ -2,6 +2,7 @@
 using EHVN.AronaBot.Config;
 using EHVN.AronaBot.Functions;
 using EHVN.AronaBot.Functions.AI.CharacterAI;
+using EHVN.AronaBot.Miscellaneous;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Auth;
 using EHVN.ZepLaoSharp.Events;
@@ -62,9 +63,8 @@ namespace EHVN.AronaBot
             new Thread(CheckRestart).Start();
             InitializeClient();
             FFMpegUtils.ClearCache();
-#if !DEBUG
-            FFMpegUtils.FFMpegPath = "Tools\\ffmpeg";
-#endif
+            if (!Utils.CanExecuteDirectly("ffmpeg"))
+                FFMpegUtils.FFMpegPath = @"Tools\ffmpeg";
             client = clientBuilder.Build();
             await client.ConnectAsync();
             Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
@@ -80,9 +80,12 @@ namespace EHVN.AronaBot
         {
             try
             {
+                string fileName = "yt-dlp.exe";
+                if (!Utils.CanExecuteDirectly(fileName))
+                    fileName = @"Tools\yt-dlp\yt-dlp.exe";
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = @"Tools\yt-dlp\yt-dlp.exe",
+                    FileName = fileName,
                     Arguments = "-U",
                     UseShellExecute = false,
                 });
@@ -116,6 +119,11 @@ namespace EHVN.AronaBot
 
         static async Task EventListeners_GroupMessageReceived(ZaloClient sender, GroupMessageReceivedEventArgs args)
         {
+            //if (args.Author.DisplayName == "Nguyen Viet Quan")
+            //{
+            //    await args.GroupMessage.DeleteAsync();
+            //    return;
+            //}
             await CAIMain.GroupMessageReceived(sender, args);
         }
 

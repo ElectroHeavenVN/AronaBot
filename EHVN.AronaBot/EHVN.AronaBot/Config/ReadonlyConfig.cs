@@ -20,11 +20,8 @@ namespace EHVN.AronaBot.Config
         [JsonInclude, JsonPropertyName("SoundCloudClientID")]
         internal string SoundCloudClientID { get; set; } = "";
 
-        [JsonInclude, JsonPropertyName("CharacterAIToken")]
-        internal string CharacterAIToken { get; set; } = "";
-
-        [JsonInclude, JsonPropertyName("CharacterAIChatID")]
-        internal string CharacterAIChatID { get; set; } = "";
+        [JsonInclude, JsonPropertyName("CharacterAI")]
+        internal CharacterAIConfig CharacterAI { get; set; } = new CharacterAIConfig();
 
         //TODO: listen to multiple servers
 

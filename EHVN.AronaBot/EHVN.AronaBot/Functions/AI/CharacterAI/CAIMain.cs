@@ -2,6 +2,10 @@
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.Events;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using static EHVN.AronaBot.Functions.AI.CharacterAI.CharacterAIIPCClient;
@@ -10,7 +14,7 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
 {
     internal static class CAIMain
     {
-        static CharacterAIIPCClient cClient = new CharacterAIIPCClient(BotConfig.ReadonlyConfig.CharacterAIToken);
+        static CharacterAIIPCClient cClient = new CharacterAIIPCClient(BotConfig.ReadonlyConfig.CharacterAI.Token);
         static ChatSession chatSession;
         static bool initialized;
         static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
@@ -20,12 +24,15 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
             if (initialized)
                 return;
             initialized = true;
-            chatSession = await cClient.GetChatAsync(BotConfig.ReadonlyConfig.CharacterAIChatID);
+            chatSession = await cClient.GetChatAsync(BotConfig.ReadonlyConfig.CharacterAI.ChatID);
         }
 
         static bool ShouldRespond(ZaloGroupMessage groupMessage)
         {
             if (groupMessage.IsCurrent)
+                return false;
+            string content = groupMessage.Content?.Text ?? "";
+            if (content.StartsWith(BotConfig.WritableConfig.Prefix))
                 return false;
             if (groupMessage.MentionCurrentUser)
                 return true;
@@ -36,22 +43,37 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
 
         internal static async Task GroupMessageReceived(ZaloClient sender, GroupMessageReceivedEventArgs args)
         {
+            if (args.Group.ID != 8566925697964157802)
+                return;
+            if (!ShouldRespond(args.GroupMessage))
+                return;
+            string content = args.GroupMessage.Content?.Text ?? "";
+            if (string.IsNullOrWhiteSpace(content))
+                return;
             await semaphoreSlim.WaitAsync();
             try
             {
-                await InitializeAsync();
-                if (args.Group.ID != 8566925697964157802)
-                    return;
-                if (!ShouldRespond(args.GroupMessage))
-                    return;
-                await args.GroupMessage.SendSeenAsync();
+                await args.GroupMessage.MarkAsReadAsync();
                 await args.Group.TriggerTypingAsync();
-                await Task.Delay(2000);
-                string content = args.GroupMessage.Content?.Text ?? "";
-                if (string.IsNullOrWhiteSpace(content))
-                    return;
-                content = $"{args.Member.DisplayName} {args.Member.Mention}: {content}";
-                content = await cClient.SendMessageAsync(chatSession, content);
+                await InitializeAsync();
+                //content = $"{args.Member.DisplayName} {args.Member.Mention}: {content}";
+                Dictionary<string, string> mentions = [];
+                foreach (var mention in args.GroupMessage.Mentions.Where(m => m.Type != ZaloMentionType.Everyone))
+                {
+                    string name = content[mention.Position..(mention.Position + mention.Length)];
+                    mentions.Add(name, Formatter.Mention(mention.UserID));
+                }
+                for (int i = args.GroupMessage.Mentions.Length - 1; i >= 0; i--)
+                {
+                    ZaloMention? mention = args.GroupMessage.Mentions[i];
+                    content = content.Remove(mention.Position, mention.Length).Insert(mention.Position, Formatter.Mention(mention.UserID));
+                }
+                JsonObject jobj = new JsonObject()
+                {
+                    ["message"] = content,
+                    ["mentions"] = JsonValue.Create(mentions, SourceGenerationContext.Default.DictionaryStringString)
+                };
+                content = await cClient.SendMessageAsync(chatSession, jobj.ToJsonString(new JsonSerializerOptions(SourceGenerationContext.Default.Options) { WriteIndented = false }));
                 //await args.GroupMessage.ReplyAsync(BuildReply(content, args.Group.CurrentMember.Mention));
                 await args.GroupMessage.ReplyAsync(BuildReply(content, args.Member.Mention));
             }
@@ -63,10 +85,12 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
 
         static string BuildReply(string content, string mention)
         {
+            //{Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("アロナちゃん")))}
+            //{Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("Character") + Formatter.ColorYellow(".") + Formatter.ColorRed("AI")))}
             return
                 $"""
                 {mention}
-                {Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("Character") + Formatter.ColorYellow(".") + Formatter.ColorRed("AI")))}
+                {Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("アロナちゃん")))}
                 {content}
                 """.Replace("\r", "");
         }

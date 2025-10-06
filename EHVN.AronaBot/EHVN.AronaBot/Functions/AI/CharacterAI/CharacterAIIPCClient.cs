@@ -29,7 +29,7 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
             long id = Random.Shared.NextInt64();
             pyCharacterAIWrapper = Process.Start(new ProcessStartInfo
             {
-                FileName = "EHVN.PyCharacterAI.Wrapper.exe",
+                FileName = @"Tools\PyCharacterAI\EHVN.PyCharacterAI.Wrapper.exe",
                 Arguments = $"{id}",
                 EnvironmentVariables = { ["CHARACTERAI_TOKEN"] = token },
             }) ?? throw new Exception("Failed to start EHVN.PyCharacterAI.Wrapper.");
