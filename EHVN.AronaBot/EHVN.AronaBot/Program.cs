@@ -1,13 +1,12 @@
 ﻿using EHVN.AronaBot.Commands;
 using EHVN.AronaBot.Config;
-using EHVN.AronaBot.Functions;
 using EHVN.AronaBot.Functions.AI.CharacterAI;
 using EHVN.AronaBot.Miscellaneous;
 using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Auth;
+using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Events;
 using EHVN.ZepLaoSharp.FFMpeg;
-using EHVN.ZepLaoSharp.Logging;
 using EHVN.ZepLaoSharp.Net.LongPolling;
 using System;
 using System.Diagnostics;
@@ -67,11 +66,15 @@ namespace EHVN.AronaBot
                 FFMpegUtils.FFMpegPath = @"Tools\ffmpeg";
             client = clientBuilder.Build();
             await client.ConnectAsync();
-            Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
-            AdminCommands.Register(client);
-            GroupCommands.Register(client);
             client.EventListeners.Disconnected += EventListeners_Disconnected;
-            client.EventListeners.GroupMessageReceived += EventListeners_GroupMessageReceived;
+            Console.WriteLine("Logged in as: " + client.CurrentUser.DisplayName);
+            CommandsExtension cmd = client.FindOrCreateCommandsExtension(new CommandConfiguration()
+            {
+                PrefixResolver = new PrefixResolver().ResolvePrefixAsync,
+            });
+            AdminCommands.Register(cmd);
+            GroupCommands.Register(cmd);
+            cmd.CommandNotExecuted += Cmd_CommandNotExecuted;
             //DBOWorldChat.Initialize();
             await Task.Delay(Timeout.Infinite);
         }
@@ -116,15 +119,10 @@ namespace EHVN.AronaBot
             await Task.Delay(60000);
             await client.ConnectAsync();
         }
-
-        static async Task EventListeners_GroupMessageReceived(ZaloClient sender, GroupMessageReceivedEventArgs args)
+        static async Task Cmd_CommandNotExecuted(ZaloClient sender, MessageReceivedEventArgs args)
         {
-            //if (args.Author.DisplayName == "Nguyen Viet Quan")
-            //{
-            //    await args.GroupMessage.DeleteAsync();
-            //    return;
-            //}
-            await CAIMain.GroupMessageReceived(sender, args);
+            if (args is GroupMessageReceivedEventArgs gArgs)
+                await CAIMain.GroupMessageReceived(sender, gArgs);
         }
 
         static void InitializeClient()
@@ -138,11 +136,9 @@ namespace EHVN.AronaBot
                 Console.WriteLine("Failed to load lp_options.json, using default options. Error: " + ex.Message);
             }
             options.AutoMarkAsDelivered = true;
-            options.FilterMode = ZepLaoSharp.Net.RealtimeClientOptions.ThreadFilterMode.Inclusive;
-            options.FilterThreadIDs = [8566925697964157802];
             JsonNode node = JsonNode.Parse(File.ReadAllText(@"Data\credentials-pc.json")) ?? throw new Exception("Missing credentials-pc.json");
             clientBuilder = clientBuilder
-                //.WithLogger(new DefaultLogger(LogLevel.Trace))
+                //.WithLogger(new ZepLaoSharp.Logging.DefaultLogger(ZepLaoSharp.Logging.LogLevel.Trace))
                 .WithMaxTimeCache(TimeSpan.FromDays(1))
                 .UseLongPolling(options)
                 .WithCredential(new LoginCredentialBuilder()

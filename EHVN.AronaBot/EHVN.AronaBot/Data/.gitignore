@@ -1,0 +1,3 @@
+credentials*.json
+*-config.json
+lp_options.json

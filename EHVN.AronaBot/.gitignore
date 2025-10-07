@@ -363,5 +363,3 @@ MigrationBackup/
 FodyWeavers.xsd
 
 !FolderProfile.pubxml
-credentials*.json
-*-config.json

@@ -4,89 +4,88 @@ using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace EHVN.AronaBot.Commands
 {
     internal class AdminCommands
     {
-        internal static void Register(ZaloClient client)
+        internal static void Register(CommandsExtension cmd)
         {
-            var cmd = client.FindOrCreateCommandsExtension(new CommandConfiguration()
-            {
-                PrefixResolver = new PrefixResolver().ResolvePrefixAsync,
-            });
             AdminCheck adminCheck = new AdminCheck();
             GroupCheck groupCheck = new GroupCheck();
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .WithCommand("admin")
-                .WithName("Admin commands list")
                 .WithDescription("Hiển thị danh sách lệnh quản trị viên")
                 .WithHandler(ListAdminCommands)
-            ); 
+            );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .WithCommand("systeminfo")
-                .WithName("System information")
                 .WithDescription("Hiển thị thông tin hệ thống")
                 .WithHandler(Systeminfo)
             );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .WithCommand("admins")
-                .WithName("Admin list")
                 .WithDescription("Xem danh sách quản trị viên")
                 .WithHandler(ListAdmins)
                 );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .WithCommand("ping")
-                .WithName("Ping check")
                 .WithDescription("Kiểm tra độ trễ")
                 .WithHandler(Ping)
             );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .AddCheck(groupCheck)
-                .WithCommand("active")
-                .WithName("Active current group")
-                .WithDescription("Kích hoạt nhóm hiện tại để sử dụng lệnh thành viên")
-                .WithHandler(ActivateCurrentGroup)
+                .WithCommand("enable")
+                .WithDescription("Kích hoạt lệnh thành viên trong nhóm hiện tại")
+                .WithHandler(EnableCommandsCurrentGroup)
             );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .AddCheck(groupCheck)
-                .WithCommand("deactive")
-                .WithName("Deactive current group")
-                .WithDescription("Hủy kích hoạt nhóm hiện tại để sử dụng lệnh thành viên")
-                .WithHandler(DeactivateCurrentGroup)
+                .WithCommand("disable")
+                .WithDescription("Huỷ kích hoạt lệnh thành viên trong nhóm hiện tại")
+                .WithHandler(DisableCommandsCurrentGroup)
+            );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("ai-enable")
+                .WithDescription("Kích hoạt AI trong nhóm hiện tại")
+                .WithHandler(EnableAICurrentGroup)
+            );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("ai-disable")
+                .WithDescription("Hủy kích hoạt AI trong nhóm hiện tại")
+                .WithHandler(DisableAICurrentGroup)
             );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .AddCheck(groupCheck)
                 .WithCommand("game-add")
-                .WithName("Send game notification in current group")
-                .WithDescription("Gửi thông báo game trong nhóm hiện tại")
+                .WithDescription("Gửi thông báo trong nhóm hiện tại")
                 .WithHandler(AddCurrentGroupGameNotif)
             );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .AddCheck(groupCheck)
                 .WithCommand("game-remove")
-                .WithName("Don't send game notification in current group")
-                .WithDescription("Không gửi thông báo game trong nhóm hiện tại")
+                .WithDescription("Không gửi thông báo trong nhóm hiện tại")
                 .WithHandler(RemoveCurrentGroupGameNotif)
             );
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(adminCheck)
                 .AddCheck(groupCheck)
                 .WithCommand("disconnect")
-                .WithName("Disconnect")
                 .WithDescription("Ngắt kết nối")
                 .WithHandler(Disconnect)
             );
@@ -94,7 +93,6 @@ namespace EHVN.AronaBot.Commands
                 .AddCheck(adminCheck)
                 .WithCommand("getlink")
                 .AddAlias("gl")
-                .WithName("Get link")
                 .WithDescription("Lấy link đính kèm từ tin nhắn được nhắc đến")
                 .WithHandler(GetLink)
             );
@@ -147,11 +145,11 @@ namespace EHVN.AronaBot.Commands
             if (string.IsNullOrEmpty(link))
             {
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                await ctx.RespondAsync("Tin nhắn được nhắc đến không có đính kèm thầy ạ!");
+                await ctx.RespondAsync("Tin nhắn được nhắc đến không có đính kèm thầy ạ!", TimeSpan.FromMinutes(15));
                 return;
             }
             await ctx.Message.AddReactionAsync("/-ok");
-            await ctx.RespondAsync("Link: " + link);
+            await ctx.RespondAsync("Link: " + link, TimeSpan.FromMinutes(15));
         }
 
         private static async Task Disconnect(CommandContext ctx)
@@ -167,12 +165,11 @@ namespace EHVN.AronaBot.Commands
                 await ctx.Message.AddReactionAsync("/-ok");
                 BotConfig.WritableConfig.DBONotifGroupIDs.Add(ctx.Thread.ThreadID);
                 BotConfig.Save();
-                await ctx.RespondAsync("Nhóm hiện tại đã được thêm vào danh sách nhận thông báo game.");
             }
             else
             {
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                await ctx.RespondAsync("Nhóm hiện tại đã có trong danh sách nhận thông báo game.");
+                await ctx.RespondAsync("Nhóm hiện tại đã có trong danh sách nhận thông báo rồi thầy ạ!", TimeSpan.FromMinutes(15));
             }
         }
 
@@ -183,44 +180,77 @@ namespace EHVN.AronaBot.Commands
                 await ctx.Message.AddReactionAsync("/-ok");
                 BotConfig.WritableConfig.DBONotifGroupIDs.Remove(ctx.Thread.ThreadID);
                 BotConfig.Save();
-                await ctx.RespondAsync("Nhóm hiện tại sẽ không được nhận thông báo game nữa.");
             }
             else
             {
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                await ctx.RespondAsync("Nhóm hiện tại không có trong danh sách nhận thông báo game.");
+                await ctx.RespondAsync("Nhóm hiện tại chưa có trong danh sách nhận thông báo rồi thầy ạ!", TimeSpan.FromMinutes(15));
             }
         }
 
-        private static async Task ActivateCurrentGroup(CommandContext ctx)
+        private static async Task EnableCommandsCurrentGroup(CommandContext ctx)
         {
-            if (!BotConfig.WritableConfig.EnabledGroupIDs.Contains(ctx.Thread.ThreadID))
+            if (!BotConfig.WritableConfig.CommandEnabledGroupIDs.Contains(ctx.Thread.ThreadID))
             {
                 await ctx.Message.AddReactionAsync("/-ok");
-                BotConfig.WritableConfig.EnabledGroupIDs.Add(ctx.Thread.ThreadID);
+                BotConfig.WritableConfig.CommandEnabledGroupIDs.Add(ctx.Thread.ThreadID);
                 BotConfig.Save();
-                await ctx.RespondAsync("Nhóm hiện tại đã được kích hoạt quyền sử dụng lệnh thành viên.");
             }
             else
             {
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                await ctx.RespondAsync("Nhóm hiện tại đã được kích hoạt trước đó.");
+                await ctx.RespondAsync("Nhóm hiện tại đã được kích hoạt lệnh thành viên rồi thầy ạ!", TimeSpan.FromMinutes(15));
             }
         }
 
-        private static async Task DeactivateCurrentGroup(CommandContext ctx)
+        private static async Task DisableCommandsCurrentGroup(CommandContext ctx)
         {
-            if (BotConfig.WritableConfig.EnabledGroupIDs.Contains(ctx.Thread.ThreadID))
+            if (BotConfig.WritableConfig.CommandEnabledGroupIDs.Contains(ctx.Thread.ThreadID))
             {
                 await ctx.Message.AddReactionAsync("/-ok");
-                BotConfig.WritableConfig.EnabledGroupIDs.Remove(ctx.Thread.ThreadID);
+                BotConfig.WritableConfig.CommandEnabledGroupIDs.Remove(ctx.Thread.ThreadID);
                 BotConfig.Save();
-                await ctx.RespondAsync("Nhóm hiện tại đã bị hủy kích hoạt quyền sử dụng lệnh thành viên.");
             }
             else
             {
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                await ctx.RespondAsync("Nhóm hiện tại không được kích hoạt trước đó.");
+                await ctx.RespondAsync("Nhóm hiện tại chưa được kích hoạt lệnh thành viên thầy ạ!", TimeSpan.FromMinutes(15));
+            }
+        }
+
+        private static async Task EnableAICurrentGroup(CommandContext ctx)
+        {
+            if (ctx.Group!.Type == ZaloGroupType.Community)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Chức năng AI không khả dụng trong nhóm cộng đồng thầy ạ!", TimeSpan.FromMinutes(15));
+                return;
+            }
+            if (!BotConfig.WritableConfig.CharacterAIEnabledGroupIDs.Contains(ctx.Thread.ThreadID))
+            {
+                await ctx.Message.AddReactionAsync("/-ok");
+                BotConfig.WritableConfig.CharacterAIEnabledGroupIDs.Add(ctx.Thread.ThreadID);
+                BotConfig.Save();
+            }
+            else
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Nhóm hiện tại đã được kích hoạt AI rồi thầy ạ!", TimeSpan.FromMinutes(15));
+            }
+        }
+
+        private static async Task DisableAICurrentGroup(CommandContext ctx)
+        {
+            if (BotConfig.WritableConfig.CharacterAIEnabledGroupIDs.Contains(ctx.Thread.ThreadID))
+            {
+                await ctx.Message.AddReactionAsync("/-ok");
+                BotConfig.WritableConfig.CharacterAIEnabledGroupIDs.Remove(ctx.Thread.ThreadID);
+                BotConfig.Save();
+            }
+            else
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                await ctx.RespondAsync("Nhóm hiện tại chưa được kích hoạt AI thầy ạ!", TimeSpan.FromMinutes(15));
             }
         }
 

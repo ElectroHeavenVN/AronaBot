@@ -23,7 +23,7 @@ namespace EHVN.AronaBot.Commands
                 return false;
             if (BotConfig.GetAllAdminIDs().Contains(ctx.User.ID))
                 return true;
-            if (!BotConfig.WritableConfig.EnabledGroupIDs.Contains(ctx.Thread.ThreadID))
+            if (!BotConfig.WritableConfig.CommandEnabledGroupIDs.Contains(ctx.Thread.ThreadID))
                 return false;
             if (BotConfig.WritableConfig.DisabledUserIDs.Contains(ctx.User.ID))
                 return false;

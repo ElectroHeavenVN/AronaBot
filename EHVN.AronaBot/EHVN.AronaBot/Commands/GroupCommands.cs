@@ -25,7 +25,7 @@ namespace EHVN.AronaBot.Commands
 {
     internal static partial class GroupCommands
     {
-        [GeneratedRegex("^((https?:)?\\/\\/)?((?<type>www|m|music)\\.)?((youtube\\.com|youtu\\.be))(\\/([\\w\\-]+\\?v=|embed\\/|v\\/|shorts\\/)?)(?<id>[\\w\\-]+)(\\S+)?$", RegexOptions.Compiled)]
+        [GeneratedRegex("^((https?:)?\\/\\/)?((?<type>www|m|music)\\.)?((youtube\\.com|youtu\\.be))(\\/([\\w\\-]+\\?v=|(?<kind>|embed|v|shorts)\\/)?)(?<id>[\\w\\-]+)(\\S+)?$", RegexOptions.Compiled)]
         private static partial Regex GetRegexMatchYTLink();
         [GeneratedRegex("^(((spotify:|https?:\\/\\/)[a-z]*\\.?spotify\\.com(\\/embed)?\\/track\\/))(?<id>.[^\\?\\n]*)(\\?.*)?$", RegexOptions.Compiled)]
         private static partial Regex GetRegexMatchSpotifyLink();
@@ -43,24 +43,19 @@ namespace EHVN.AronaBot.Commands
         static SoundCloudClient? scClient;
         static ZingMP3Client? zClient;
 
-        internal static void Register(ZaloClient client)
+        internal static void Register(CommandsExtension cmd)
         {
-            var cmd = client.FindOrCreateCommandsExtension(new CommandConfiguration()
-            {
-                PrefixResolver = new PrefixResolver().ResolvePrefixAsync,
-            });
             GroupCheck groupCheck = new EnabledGroupsAndUsersCheck();
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(groupCheck)
                 .WithCommand("help")
-                .WithName("Help")
                 .WithDescription("Hiển thị danh sách lệnh thành viên")
                 .WithHandler(Help)
             );
             cmd.RegisterCommand(new CommandBuilder("sptf")
-                .WithName("Spotify")
                 .AddCheck(groupCheck)
-                .WithDescription("Download songs from Spotify")
+                .WithDescription("Tải nhạc từ Spotify")
+                .AddAlias("spotify")
                 .AddParameter(new CommandParameterBuilder()
                     .WithName("link")
                     .WithDescription("Link to download")
@@ -71,12 +66,12 @@ namespace EHVN.AronaBot.Commands
                     )
                 .WithHandler(OnSpotifyDownload));
             cmd.RegisterCommand(new CommandBuilder("yt")
-                .WithName("YouTube")
                 .AddCheck(groupCheck)
-                .WithDescription("Download videos from YouTube")
+                .WithDescription("Tải video từ YouTube")
+                .AddAlias("youtube")
                 .AddParameter(new CommandParameterBuilder()
                     .WithName("link")
-                    .WithDescription("Link to download")
+                    .WithDescription("Link YouTube")
                     .WithType<string>()
                     .WithDefaultValue("")
                     .TakeRemainingText()
@@ -84,12 +79,12 @@ namespace EHVN.AronaBot.Commands
                     )
                 .WithHandler(OnYouTubeDownload));
             cmd.RegisterCommand(new CommandBuilder("scl")
-                .WithName("SoundCloud")
                 .AddCheck(groupCheck)
-                .WithDescription("Download songs from SoundCloud")
+                .WithDescription("Tải nhạc từ SoundCloud")
+                .AddAlias("soundcloud")
                 .AddParameter(new CommandParameterBuilder()
                     .WithName("link")
-                    .WithDescription("Link to download")
+                    .WithDescription("Link SoundCloud")
                     .WithType<string>()
                     .WithDefaultValue("")
                     .TakeRemainingText()
@@ -97,12 +92,12 @@ namespace EHVN.AronaBot.Commands
                     )
                 .WithHandler(OnSoundCloudDownload));
             cmd.RegisterCommand(new CommandBuilder("zmp3")
-                .WithName("Zing MP3")
                 .AddCheck(groupCheck)
-                .WithDescription("Download songs from Zing MP3")
+                .WithDescription("Tải nhạc từ Zing MP3")
+                .AddAlias("zingmp3")
                 .AddParameter(new CommandParameterBuilder()
                     .WithName("link")
-                    .WithDescription("Link to download")
+                    .WithDescription("Link Zing MP3")
                     .WithType<string>()
                     .WithDefaultValue("")
                     .TakeRemainingText()
@@ -110,12 +105,11 @@ namespace EHVN.AronaBot.Commands
                     )
                 .WithHandler(OnZingMP3Download));
             cmd.RegisterCommand(new CommandBuilder("tts")
-                .WithName("TextToSpeech")
                 .AddCheck(groupCheck)
-                .WithDescription("Convert text to speech")
+                .WithDescription("Chuyển văn bản thành giọng nói")
                 .AddParameter(new CommandParameterBuilder()
                     .WithName("text")
-                    .WithDescription("Text to convert")
+                    .WithDescription("Văn bản để chuyển đổi")
                     .WithType<string>()
                     .TakeRemainingText()
                     )
@@ -124,7 +118,6 @@ namespace EHVN.AronaBot.Commands
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(groupCheck)
                 .WithCommand("stk")
-                .WithName("Make Sticker")
                 .WithDescription("Tạo sticker từ ảnh hoặc video")
                 .WithHandler(MakeSticker)
             );
@@ -175,10 +168,10 @@ namespace EHVN.AronaBot.Commands
                 }
                 await ctx.RespondAsync(
                     $"""
-                Danh sách lệnh thành viên:
+                    Danh sách lệnh thành viên:
 
-                {cmds}
-                """
+                    {cmds}
+                    """
                     .Replace("\r", "")
                 );
             }
@@ -197,7 +190,7 @@ namespace EHVN.AronaBot.Commands
                 if (isDownloading)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(1));
+                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 string link = ctx.Arguments[0] as string ?? "";
@@ -205,20 +198,21 @@ namespace EHVN.AronaBot.Commands
                 if (!match.Success)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Link video YouTube không hợp lệ rồi thầy ạ!");
+                    await ctx.RespondAsync("Link video YouTube không hợp lệ rồi thầy ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 isDownloading = true;
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
-                await ctx.RespondAsync("Thầy đợi em một chút ạ!", TimeSpan.FromMinutes(1));
+                await ctx.Thread.TriggerTypingAsync();
                 string tempPath = Path.Combine(Path.GetTempPath(), "yt-dlp", Utils.RandomString(10));
                 if (!Directory.Exists(tempPath))
                     Directory.CreateDirectory(tempPath);
                 try
                 {
                     bool isMusic = match.Groups["type"].Value == "music";
+                    bool isShorts = match.Groups["kind"].Value == "shorts";
                     string id = match.Groups["id"].Value;
-                    string extArg = "-f \"bestvideo+bestaudio\" -S res:1080 --remux-video mp4 --embed-thumbnail --embed-metadata --no-mtime";
+                    string extArg = "-f \"bv[vcodec^=avc1][ext=mp4]+ba[ext=m4a]/bv+ba\" -S res:1080 --remux-video mp4 --embed-thumbnail --embed-metadata --no-mtime";
                     if (isMusic)
                         extArg = "-f bestaudio --embed-thumbnail --embed-metadata --no-mtime --extract-audio --audio-quality 0";
                     string fileName = "yt-dlp.exe";
@@ -234,27 +228,23 @@ namespace EHVN.AronaBot.Commands
                     if (yt_dlp is null)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không thể khởi động yt-dlp.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     await yt_dlp.WaitForExitAsync();
                     if (yt_dlp.ExitCode != 0)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("yt-dlp đã gặp lỗi khi tải xuống video.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     if (new DirectoryInfo(tempPath).GetFiles().Length == 0)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không tìm thấy tệp sau khi tải xuống.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     string filePath = new DirectoryInfo(tempPath).GetFiles().First().FullName;
                     if (!filePath.Contains(id))
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không tìm thấy tệp đúng sau khi tải xuống.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     if (isMusic)
@@ -270,14 +260,12 @@ namespace EHVN.AronaBot.Commands
                         if (ffmpeg is null)
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Không thể khởi động ffmpeg.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         await ffmpeg.WaitForExitAsync();
                         if (ffmpeg.ExitCode != 0 || !File.Exists(newFilePath))
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("ffmpeg đã gặp lỗi khi chuyển đổi tệp âm thanh.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         using ZaloAttachment voice = ZaloAttachment.FromFile(filePath).ConvertAudioToM4A();
@@ -291,9 +279,18 @@ namespace EHVN.AronaBot.Commands
                     }
                     else
                     {
-                        using ZaloAttachment video = AttachmentUtils.FromVideoFile(filePath).WithGroupMediaTitle(Path.GetFileNameWithoutExtension(filePath).Replace($" [{id}]", ""));
+                        Stream? thumbnailStream = null;
+                        //if (isShorts)
+                        //{
+                        //    using var stream = await httpClient.GetStreamAsync($"https://i.ytimg.com/vi/{id}/oardefault.jpg");
+                        //    thumbnailStream = new MemoryStream();
+                        //    await stream.CopyToAsync(thumbnailStream);
+                        //    thumbnailStream.Position = 0;
+                        //}
+                        using ZaloAttachment video = AttachmentUtils.FromVideoFile(filePath, thumbnailStream).WithGroupMediaTitle(Path.GetFileNameWithoutExtension(filePath).Replace($" [{id}]", ""));
                         await ctx.Thread.SendMessagesAsync(new ZaloMessageBuilder()
                             .GroupMediaMessages()
+                            //.WithContent(Path.GetFileNameWithoutExtension(filePath).Replace($" [{id}]", ""))
                             .AddAttachment(video)
                             );
                         await ctx.Message.RemoveAllReactionsAsync();
@@ -321,7 +318,7 @@ namespace EHVN.AronaBot.Commands
                 if (isDownloading)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(1));
+                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 string link = ctx.Arguments[0] as string ?? "";
@@ -329,12 +326,12 @@ namespace EHVN.AronaBot.Commands
                 if (!match.Success)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Link bài hát Spotify không hợp lệ rồi thầy ạ!");
+                    await ctx.RespondAsync("Link bài hát Spotify không hợp lệ rồi thầy ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 isDownloading = true;
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
-                await ctx.RespondAsync("Thầy đợi em một chút ạ!", TimeSpan.FromMinutes(1));
+                await ctx.Thread.TriggerTypingAsync();
                 string tempPath = Path.Combine(Path.GetTempPath(), "zotify", Utils.RandomString(10));
                 if (!Directory.Exists(tempPath))
                     Directory.CreateDirectory(tempPath);
@@ -353,20 +350,17 @@ namespace EHVN.AronaBot.Commands
                     if (zotify is null)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không thể khởi động Zotify.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     await zotify.WaitForExitAsync();
                     if (zotify.ExitCode != 0)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Zotify đã gặp lỗi khi tải xuống bài hát.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     if (new DirectoryInfo(tempPath).GetFiles("*.mp3").Length == 0)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không tìm thấy tệp âm thanh sau khi tải xuống.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     string filePath = new DirectoryInfo(tempPath).GetFiles("*.mp3").First().FullName;
@@ -404,7 +398,7 @@ namespace EHVN.AronaBot.Commands
                 if (isDownloading)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(1));
+                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 string link = ctx.Arguments[0] as string ?? "";
@@ -412,25 +406,23 @@ namespace EHVN.AronaBot.Commands
                 if (!match.Success || link.Contains("/you/"))
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Link nhạc SoundCloud không hợp lệ rồi thầy ạ!");
+                    await ctx.RespondAsync("Link nhạc SoundCloud không hợp lệ rồi thầy ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 isDownloading = true;
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
-                await ctx.RespondAsync("Thầy đợi em một chút ạ!", TimeSpan.FromMinutes(1));
+                await ctx.Thread.TriggerTypingAsync();
                 try
                 {
                     var track = await scClient.Tracks.GetAsync(link);
                     if (track is null)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không tìm thấy bài hát trên SoundCloud.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     if (track.Duration > 1000 * 60 * 30 || track.FullDuration > 1000 * 60 * 30)
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Bài hát quá dài để tải xuống.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     string title = track.Title ?? "";
@@ -439,7 +431,6 @@ namespace EHVN.AronaBot.Commands
                     if (string.IsNullOrEmpty(downloadLink))
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Không thể tải xuống bài hát.", TimeSpan.FromMinutes(1));
                         return;
                     }
                     MemoryStream memStream = new MemoryStream();
@@ -464,7 +455,6 @@ namespace EHVN.AronaBot.Commands
                 catch (TrackUnavailableException)
                 {
                     await ctx.Message.RemoveAllReactionsAsync();
-                    await ctx.RespondAsync("Bài hát không khả dụng để tải xuống.", TimeSpan.FromMinutes(1));
                     return;
                 }
                 finally
@@ -492,20 +482,20 @@ namespace EHVN.AronaBot.Commands
                 if (isDownloading)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(1));
+                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 string link = ctx.Arguments[0] as string ?? "";
                 Match match = GetRegexMatchZingMP3Link().Match(link);
-                if (!match.Success || link.Contains("/you/"))
+                if (!match.Success || link.Contains("/you/") || (match.Groups[1].Value != "bai-hat" && match.Groups[1].Value != "video-clip"))
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Link nhạc Zing MP3 không hợp lệ rồi thầy ạ!");
+                    await ctx.RespondAsync("Link nhạc Zing MP3 không hợp lệ rồi thầy ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 isDownloading = true;
                 await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
-                await ctx.RespondAsync("Thầy đợi em một chút ạ!", TimeSpan.FromMinutes(1));
+                await ctx.Thread.TriggerTypingAsync();
                 string tempPath = Path.Combine(Path.GetTempPath(), "zmp3", Utils.RandomString(10));
                 if (!Directory.Exists(tempPath))
                     Directory.CreateDirectory(tempPath);
@@ -519,7 +509,6 @@ namespace EHVN.AronaBot.Commands
                         if (song.Duration > 60 * 30)
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Bài hát quá dài để tải xuống.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         string title = song.Title;
@@ -528,7 +517,6 @@ namespace EHVN.AronaBot.Commands
                         if (string.IsNullOrEmpty(downloadLink))
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Không thể tải xuống bài hát.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         MemoryStream memStream = new MemoryStream();
@@ -555,7 +543,6 @@ namespace EHVN.AronaBot.Commands
                         if (video.Duration > 60 * 30)
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Video quá dài để tải xuống.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         string title = video.Title;
@@ -564,7 +551,6 @@ namespace EHVN.AronaBot.Commands
                         if (string.IsNullOrEmpty(downloadLink))
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Không tìm thấy liên kết tải xuống video.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         string fileName = "yt-dlp.exe";
@@ -579,20 +565,17 @@ namespace EHVN.AronaBot.Commands
                         if (yt_dlp is null)
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Không thể khởi động yt-dlp.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         await yt_dlp.WaitForExitAsync();
                         if (yt_dlp.ExitCode != 0)
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("yt-dlp đã gặp lỗi khi tải xuống MV.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         if (new DirectoryInfo(tempPath).GetFiles().Length == 0)
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
-                            await ctx.RespondAsync("Không tìm thấy tệp sau khi tải xuống.", TimeSpan.FromMinutes(1));
                             return;
                         }
                         string filePath = new DirectoryInfo(tempPath).GetFiles().First().FullName;
@@ -607,7 +590,6 @@ namespace EHVN.AronaBot.Commands
                     else
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
-                        await ctx.RespondAsync("Link không hợp lệ.", TimeSpan.FromMinutes(1));
                         return;
                     }
                 }
@@ -634,7 +616,7 @@ namespace EHVN.AronaBot.Commands
                 if (text.Length > 500)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.RespondAsync("Văn bản quá dài, thầy vui lòng giới hạn trong 500 ký tự ạ!");
+                    await ctx.RespondAsync("Văn bản quá dài, thầy vui lòng giới hạn trong 500 ký tự ạ!", TimeSpan.FromMinutes(15));
                     return;
                 }
                 await ctx.Message.RemoveAllReactionsAsync();
@@ -712,12 +694,12 @@ namespace EHVN.AronaBot.Commands
                 if (isVideo && !isFile && videoDuration.TotalSeconds > 10 && !BotConfig.GetAllAdminIDs().Contains(ctx.User.ID))
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                    await ctx.Message.ReplyAsync("Chỉ có quản trị viên mới có quyền tạo sticker từ video dài hơn 10 giây!");
                     return;
                 }
                 if (isFile)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                    await ctx.Thread.TriggerTypingAsync();
                     _ = Task.Run(async () =>
                     {
                         using MemoryStream memStream = new MemoryStream();
@@ -730,7 +712,6 @@ namespace EHVN.AronaBot.Commands
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
                             await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                            await ctx.Message.ReplyAsync("Chỉ có quản trị viên mới có quyền tạo sticker từ video dài hơn 10 giây!");
                             return;
                         }
                         else if (isVideo)
@@ -747,7 +728,6 @@ namespace EHVN.AronaBot.Commands
                         {
                             await ctx.Message.RemoveAllReactionsAsync();
                             await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                            await ctx.Message.ReplyAsync("Ảnh không hợp lệ!");
                             return;
                         }
                         else
@@ -771,12 +751,12 @@ namespace EHVN.AronaBot.Commands
                     if (string.IsNullOrEmpty(contentUrl) || string.IsNullOrEmpty(thumbnailUrl))
                     {
                         await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                        await ctx.Message.ReplyAsync("Ảnh không hợp lệ hoặc không có ảnh nào được đính kèm!");
                         return;
                     }
                     if (!isVideo)
                     {
                         await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                        await ctx.Thread.TriggerTypingAsync();
                         if (!isGIF)
                         {
                             using ZaloAttachment attachment = ZaloAttachment.FromUrl(Path.ChangeExtension(contentUrl, Path.GetExtension(contentUrl) + "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), "image.png", fileSize, Encoding.ASCII.GetString(MD5.HashData([])), Path.ChangeExtension(thumbnailUrl, Path.GetExtension(thumbnailUrl) + "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), width, height).AsSticker();
@@ -794,7 +774,6 @@ namespace EHVN.AronaBot.Commands
                             {
                                 await ctx.Message.RemoveAllReactionsAsync();
                                 await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
-                                await ctx.Message.ReplyAsync("Ảnh không hợp lệ!");
                                 return;
                             }
                             using ZaloAttachment attachment = ZaloAttachment.FromData("image." + (isGIF ? "gif" : "png"), memoryStream).AsSticker().WithStickerType(ZaloStickerImageType.AISticker).ConvertGIFToWebp();
@@ -807,6 +786,7 @@ namespace EHVN.AronaBot.Commands
                     else
                     {
                         await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                        await ctx.Thread.TriggerTypingAsync();
                         _ = Task.Run(async () =>
                         {
                             using MemoryStream memStream = new MemoryStream();

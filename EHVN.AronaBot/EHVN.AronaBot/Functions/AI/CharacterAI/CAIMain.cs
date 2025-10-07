@@ -12,6 +12,7 @@ using static EHVN.AronaBot.Functions.AI.CharacterAI.CharacterAIIPCClient;
 
 namespace EHVN.AronaBot.Functions.AI.CharacterAI
 {
+    //TODO: find a way to have multiple chat sessions with the same character
     internal static class CAIMain
     {
         static CharacterAIIPCClient cClient = new CharacterAIIPCClient(BotConfig.ReadonlyConfig.CharacterAI.Token);
@@ -31,6 +32,8 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
         {
             if (groupMessage.IsCurrent)
                 return false;
+            if (!BotConfig.WritableConfig.CharacterAIEnabledGroupIDs.Contains(groupMessage.Group.ID))
+                return false;
             string content = groupMessage.Content?.Text ?? "";
             if (content.StartsWith(BotConfig.WritableConfig.Prefix))
                 return false;
@@ -43,8 +46,6 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
 
         internal static async Task GroupMessageReceived(ZaloClient sender, GroupMessageReceivedEventArgs args)
         {
-            if (args.Group.ID != 8566925697964157802)
-                return;
             if (!ShouldRespond(args.GroupMessage))
                 return;
             string content = args.GroupMessage.Content?.Text ?? "";
@@ -85,13 +86,13 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
 
         static string BuildReply(string content, string mention)
         {
-            //{Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("アロナちゃん")))}
-            //{Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("Character") + Formatter.ColorYellow(".") + Formatter.ColorRed("AI")))}
             return
                 $"""
                 {mention}
                 {Formatter.Bold(Formatter.FontSizeLarge(Formatter.ColorGreen("アロナちゃん")))}
                 {content}
+
+                {Formatter.Bold(Formatter.FontSizeSmall(Formatter.ColorGreen("Character") + "." + Formatter.ColorOrange("AI") + " intergration by " + Formatter.ColorYellow("ElectroHeavenVN")))}
                 """.Replace("\r", "");
         }
     }

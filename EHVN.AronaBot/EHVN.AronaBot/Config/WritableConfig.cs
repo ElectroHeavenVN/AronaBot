@@ -8,8 +8,11 @@ namespace EHVN.AronaBot.Config
         [JsonInclude, JsonPropertyName("Prefix")]
         internal string Prefix { get; set; } = "";
 
-        [JsonInclude, JsonPropertyName("IDNhomKichHoat")]
-        internal List<long> EnabledGroupIDs { get; set; } = [];
+        [JsonInclude, JsonPropertyName("IDNhomKichHoatLenh")]
+        internal List<long> CommandEnabledGroupIDs { get; set; } = [];
+        
+        [JsonInclude, JsonPropertyName("IDNhomKichHoatCharacterAI")]
+        internal List<long> CharacterAIEnabledGroupIDs { get; set; } = [];
 
         [JsonInclude, JsonPropertyName("IDNhomThongBaoGame")]
         internal List<long> DBONotifGroupIDs { get; set; } = [];
