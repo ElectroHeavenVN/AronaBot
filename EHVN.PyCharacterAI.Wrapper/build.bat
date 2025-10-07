@@ -1,0 +1,1 @@
+pyinstaller --onefile --name EHVN.PyCharacterAI.Wrapper main.py
