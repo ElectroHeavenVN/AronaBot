@@ -20,6 +20,9 @@ namespace EHVN.AronaBot.Config
         [JsonInclude, JsonPropertyName("SoundCloudClientID")]
         internal string SoundCloudClientID { get; set; } = "";
 
+        [JsonInclude, JsonPropertyName("PixivRefreshToken")]
+        internal string PixivRefreshToken { get; set; } = "";
+
         [JsonInclude, JsonPropertyName("CharacterAI")]
         internal CharacterAIConfig CharacterAI { get; set; } = new CharacterAIConfig();
 

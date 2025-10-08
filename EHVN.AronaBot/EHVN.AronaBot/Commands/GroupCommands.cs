@@ -1,10 +1,11 @@
 ﻿using EHVN.AronaBot.Config;
 using EHVN.AronaBot.Miscellaneous;
-using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.FFMpeg;
 using GTranslate.Translators;
+using PixivCS.Api;
+using PixivCS.Models.Illust;
 using SoundCloudExplode;
 using SoundCloudExplode.Exceptions;
 using System;
@@ -33,6 +34,8 @@ namespace EHVN.AronaBot.Commands
         private static partial Regex GetRegexMatchSoundCloudLink();
         [GeneratedRegex(@"zingmp3\.vn\/(bai-hat|video-clip)\/(.*\/?)(Z[A-Z0-9]{7})\.html", RegexOptions.Compiled)]
         private static partial Regex GetRegexMatchZingMP3Link();
+        [GeneratedRegex(@"pixiv\.net\/(.*?\/)?artworks\/(?<id>\d+)", RegexOptions.Compiled)]
+        private static partial Regex GetRegexMatchPixivLink();
 
         static bool isDownloading = false;
         static HttpClient httpClient = new HttpClient(new HttpClientHandler()
@@ -42,6 +45,7 @@ namespace EHVN.AronaBot.Commands
         static SemaphoreSlim cmdSemaphore = new SemaphoreSlim(1, 1);
         static SoundCloudClient? scClient;
         static ZingMP3Client? zClient;
+        static PixivAppApi? pixivClient;
 
         internal static void Register(CommandsExtension cmd)
         {
@@ -64,7 +68,7 @@ namespace EHVN.AronaBot.Commands
                     .TakeRemainingText()
                     .AsOptional()
                     )
-                .WithHandler(OnSpotifyDownload));
+                .WithHandler(SpotifyDownload));
             cmd.RegisterCommand(new CommandBuilder("yt")
                 .AddCheck(groupCheck)
                 .WithDescription("Tải video từ YouTube")
@@ -77,7 +81,7 @@ namespace EHVN.AronaBot.Commands
                     .TakeRemainingText()
                     .AsOptional()
                     )
-                .WithHandler(OnYouTubeDownload));
+                .WithHandler(YouTubeDownload));
             cmd.RegisterCommand(new CommandBuilder("scl")
                 .AddCheck(groupCheck)
                 .WithDescription("Tải nhạc từ SoundCloud")
@@ -90,7 +94,7 @@ namespace EHVN.AronaBot.Commands
                     .TakeRemainingText()
                     .AsOptional()
                     )
-                .WithHandler(OnSoundCloudDownload));
+                .WithHandler(SoundCloudDownload));
             cmd.RegisterCommand(new CommandBuilder("zmp3")
                 .AddCheck(groupCheck)
                 .WithDescription("Tải nhạc từ Zing MP3")
@@ -103,7 +107,20 @@ namespace EHVN.AronaBot.Commands
                     .TakeRemainingText()
                     .AsOptional()
                     )
-                .WithHandler(OnZingMP3Download));
+                .WithHandler(ZingMP3Download));
+            cmd.RegisterCommand(new CommandBuilder("px")
+                .AddCheck(groupCheck)
+                .WithDescription("Tải ảnh từ Pixiv")
+                .AddAlias("pixiv")
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("linkOrID")
+                    .WithDescription("Link hoặc ID Pixiv")
+                    .WithType<string>()
+                    .WithDefaultValue("")
+                    .TakeRemainingText()
+                    .AsOptional()
+                    )
+                .WithHandler(PixivDownload));
             cmd.RegisterCommand(new CommandBuilder("tts")
                 .AddCheck(groupCheck)
                 .WithDescription("Chuyển văn bản thành giọng nói")
@@ -113,8 +130,7 @@ namespace EHVN.AronaBot.Commands
                     .WithType<string>()
                     .TakeRemainingText()
                     )
-                .WithHandler(OnTTS));
-
+                .WithHandler(TTS));
             cmd.RegisterCommand(new CommandBuilder()
                 .AddCheck(groupCheck)
                 .WithCommand("stk")
@@ -181,7 +197,7 @@ namespace EHVN.AronaBot.Commands
             }
         }
 
-        static async Task OnYouTubeDownload(CommandContext ctx)
+        static async Task YouTubeDownload(CommandContext ctx)
         {
             if (!cmdSemaphore.Wait(0))
                 return;
@@ -309,7 +325,7 @@ namespace EHVN.AronaBot.Commands
             }
         }
 
-        static async Task OnSpotifyDownload(CommandContext ctx)
+        static async Task SpotifyDownload(CommandContext ctx)
         {
             if (!cmdSemaphore.Wait(0))
                 return;
@@ -385,16 +401,13 @@ namespace EHVN.AronaBot.Commands
             }
         }
 
-        static async Task OnSoundCloudDownload(CommandContext ctx)
+        static async Task SoundCloudDownload(CommandContext ctx)
         {
             if (!cmdSemaphore.Wait(0))
                 return;
             try
             {
-                if (scClient is null)
-                {
-                    scClient = new SoundCloudClient(BotConfig.ReadonlyConfig.SoundCloudClientID, httpClient);
-                }
+                scClient ??= new SoundCloudClient(BotConfig.ReadonlyConfig.SoundCloudClientID, httpClient);
                 if (isDownloading)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
@@ -468,7 +481,7 @@ namespace EHVN.AronaBot.Commands
             }
         }
 
-        static async Task OnZingMP3Download(CommandContext ctx)
+        static async Task ZingMP3Download(CommandContext ctx)
         {
             if (!cmdSemaphore.Wait(0))
                 return;
@@ -605,7 +618,7 @@ namespace EHVN.AronaBot.Commands
             }
         }
 
-        static async Task OnTTS(CommandContext ctx)
+        static async Task TTS(CommandContext ctx)
         {
             if (!cmdSemaphore.Wait(0))
                 return;
@@ -803,6 +816,94 @@ namespace EHVN.AronaBot.Commands
                             await ctx.Message.AddReactionAsync("/-ok");
                         }).ConfigureAwait(false);
                     }
+                }
+            }
+            finally
+            {
+                await Cooldown();
+            }
+        }
+    
+        static async Task PixivDownload(CommandContext ctx)
+        {
+            if (!cmdSemaphore.Wait(0))
+                return;
+            try
+            {
+                if (pixivClient is null)
+                {
+                    pixivClient = new PixivAppApi();
+                    await pixivClient.AuthAsync(BotConfig.ReadonlyConfig.PixivRefreshToken);
+                }
+                if (isDownloading)
+                {
+                    await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                    await ctx.RespondAsync("Đang có phiên tải nội dung rồi, thầy vui lòng thử lại sau ạ!", TimeSpan.FromMinutes(15));
+                    return;
+                }
+                string linkOrID = ctx.Arguments[0] as string ?? "";
+                Match match = GetRegexMatchPixivLink().Match(linkOrID);
+                if (match.Success)
+                    linkOrID = match.Groups["id"].Value;
+                if (!long.TryParse(linkOrID, out long illustID) || illustID <= 0)
+                {
+                    await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                    await ctx.RespondAsync("Link hoặc ID Pixiv không hợp lệ rồi thầy ạ!", TimeSpan.FromMinutes(15));
+                    return;
+                }
+                isDownloading = true;
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("⌛", 3490549));
+                await ctx.Thread.TriggerTypingAsync();
+                try
+                {
+                    IllustDetail illustDetail = await pixivClient.GetIllustDetailAsync(linkOrID);
+                    if (illustDetail.Illust?.ImageUrls is null)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        return;
+                    }
+                    ZaloMessageBuilder msgBuilder = new ZaloMessageBuilder().GroupMediaMessages();
+                    if (illustDetail.Illust.MetaPages.Count > 0)
+                    {
+                        for (int i = 0; i < illustDetail.Illust.MetaPages.Count; i++)
+                        {
+                            MetaPage metaPage = illustDetail.Illust.MetaPages[i];
+                            if (metaPage.ImageUrls is null)
+                                continue;
+                            if (metaPage.ImageUrls.Original is null && metaPage.ImageUrls.Large is null)
+                                continue;
+                            Stream imgStream = await pixivClient.GetImageStreamAsync(metaPage.ImageUrls.Original ?? metaPage.ImageUrls.Large!);
+                            imgStream.Position = 0;
+                            msgBuilder.AddAttachment(ZaloAttachment.FromData($"{illustDetail.Illust.Id}-{i + 1}.png", imgStream).AsOriginal().GeneratePreviewThumb().WithGroupMediaTitle(illustDetail.Illust.Title));
+                        }
+                    }
+                    else
+                    {
+                        if (illustDetail.Illust.ImageUrls.Original is null && illustDetail.Illust.ImageUrls.Large is null)
+                        {
+                            await ctx.Message.RemoveAllReactionsAsync();
+                            return;
+                        }
+                        Stream imgStream = await pixivClient.GetImageStreamAsync(illustDetail.Illust.ImageUrls.Original ?? illustDetail.Illust.ImageUrls.Large);
+                        imgStream.Position = 0;
+                        msgBuilder.AddAttachment(ZaloAttachment.FromData($"{illustDetail.Illust.Id}.png", imgStream).AsOriginal().GeneratePreviewThumb().WithGroupMediaTitle(illustDetail.Illust.Title));
+                    }
+                    if (msgBuilder.Attachments.Count == 0)
+                    {
+                        await ctx.Message.RemoveAllReactionsAsync();
+                        return;
+                    }
+                    await ctx.Thread.SendMessagesAsync(msgBuilder);
+                    if (!string.IsNullOrEmpty(illustDetail.Illust.Caption))
+                        await ctx.Thread.SendMessageAsync(illustDetail.Illust.Caption.Replace("<br />", "\n").Replace("\r", ""));
+                    await ctx.Message.RemoveAllReactionsAsync();
+                    await ctx.Message.AddReactionAsync("/-ok");
+                    foreach (var attachment in msgBuilder.Attachments)
+                        attachment.Dispose();
+                }
+                finally
+                {
+                    isDownloading = false;
                 }
             }
             finally

@@ -37,6 +37,15 @@ namespace EHVN.AronaBot.Functions.AI.CharacterAI
             string content = groupMessage.Content?.Text ?? "";
             if (content.StartsWith(BotConfig.WritableConfig.Prefix))
                 return false;
+            if (string.IsNullOrWhiteSpace(content))
+                return false;
+            foreach (var mention in groupMessage.Mentions)
+            {
+                if (mention.UserID == groupMessage.Group.CurrentMember.ID)
+                    content = content.Substring(0, mention.Position) + content.Substring(mention.Position + mention.Length);
+            }
+            if (string.IsNullOrWhiteSpace(content))
+                return false;
             if (groupMessage.MentionCurrentUser)
                 return true;
             if (groupMessage.Quote is not null && groupMessage.Quote.IsCurrent)
