@@ -23,111 +23,154 @@ namespace EHVN.AronaBot
             'ỳ', 'ý', 'ỷ', 'ỹ', 'ỵ',
         ];
 
-        internal static byte[] AddWatermark(byte[] image, string prefix)
-        {
-            using MagickImage img = new MagickImage(image);
-            using MagickImage watermark = new MagickImage();
-            MagickReadSettings settings = new MagickReadSettings
-            {
-                BackgroundColor = MagickColors.Transparent,
-                TextGravity = Gravity.North,
-                FontPointsize = 20,
-                Width = img.Width,
-                Height = img.Height,
-                FontStyle = FontStyleType.Bold,
-                FontWeight = FontWeight.Normal,
-                FillColor = MagickColors.Red,
-            };
-            watermark.Read("caption:AronaBot - Developed by ElectroHeavenVN", settings);
-            img.Composite(watermark, 0, 0, CompositeOperator.Over);
-            settings.FontPointsize = 16;
-            settings.FontStyle = FontStyleType.Normal;
-            settings.FillColor = MagickColors.Orange;
-            watermark.Read(string.Format("caption:Chat {0}about để biết thêm thông tin", prefix), settings);
-            img.Composite(watermark, 0, 22, CompositeOperator.Over);
-            return img.ToByteArray(MagickFormat.Png);
-        }
-
-        internal static async Task<byte[]> TryCreateCanvas(string bgUrl, string avatar1Url, string avatar2Url, string[] messages)
+        internal static async Task<Stream> TryCreateCanvas(string bgPath, string bgUrl, string avatar1Url, string avatar2Url, string[] messages)
         {
             for (int i = 0; i < messages.Length; i++)
                 messages[i] = ReplaceUnicodeChars(messages[i]);
-            byte[] bgData = [];
-            if (string.IsNullOrEmpty(bgUrl))
-            {
-                string[] backgrounds = Directory.GetFiles(@"Data\Backgrounds\", "*.png");
-                string bgFilePath = backgrounds[Random.Shared.Next(0, backgrounds.Length)];
-                bgData = File.ReadAllBytes(bgFilePath);
-            }
+            Stream background1;
+            Stream background2 = new MemoryStream();
+            Stream avatar1 = await GetAvatar(avatar1Url);
+            Stream avatar2 = await GetAvatar(avatar2Url);
             try
             {
-                try
-                {
-                    if (!string.IsNullOrEmpty(bgUrl))
-                        bgData = await httpClient.GetByteArrayAsync(bgUrl);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(ex);
-                }
-                return await CreateCanvas(bgData, avatar1Url, avatar2Url, messages);
+                if (File.Exists(bgPath))
+                    background1 = File.OpenRead(bgPath);
+                else
+                    background1 = new MemoryStream();
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(ex);
-                try
+                background1 = new MemoryStream();
+            }
+            try
+            {
+                if (!string.IsNullOrEmpty(bgUrl))
                 {
-                    return await CreateCanvas(bgData, "", "", messages);
+                    Stream stream = await httpClient.GetStreamAsync(bgUrl);
+                    await stream.CopyToAsync(background2);
+                    background2.Position = 0;
                 }
-                catch (Exception ex2)
-                {
-                    Console.Error.WriteLine(ex2);
-                    return [];
-                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                background2 = new MemoryStream();
+            }
+            try
+            {
+                if (background1.Length == 0)
+                    Console.Error.WriteLine("Background 1 is empty.");
+                if (background2.Length == 0)
+                    Console.Error.WriteLine("Background 2 is empty.");
+                if (avatar1.Length == 0)
+                    Console.Error.WriteLine("Avatar 1 is empty.");
+                if (avatar2.Length == 0)
+                    Console.Error.WriteLine("Avatar 2 is empty.");
+                return CreateCanvas(background1, background2, avatar1, avatar2, messages);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                return new MemoryStream();
             }
         }
 
-        static async Task<byte[]> CreateCanvas(byte[] bgData, string avatar1Url, string avatar2Url, string[] messages)
+        static async Task<Stream> GetAvatar(string avatar1Url)
         {
-            MagickImage bg = new MagickImage(bgData);
-            CropFill(bg, 900, 300);
-            bg.BrightnessContrast(new Percentage(-25), new Percentage(0));
-            bg.HasAlpha = false;
-            byte[] data;
-            if (!string.IsNullOrEmpty(avatar1Url))
-                data = await httpClient.GetByteArrayAsync(avatar1Url);
-            else if (File.Exists(@"Data\default.png"))
-                data = File.ReadAllBytes(@"Data\default.png");
-            else
-                throw new Exception();
-            var avatar1 = new MagickImage(data);
-            avatar1.Resize(150, 150);
-            avatar1 = RoundImage(avatar1);
-            bg.Composite(avatar1, 50, (int)(bg.Height / 2 - avatar1.Height / 2), CompositeOperator.Over);
-            avatar1.Dispose();
-            if (!string.IsNullOrEmpty(avatar2Url))
-                data = await httpClient.GetByteArrayAsync(avatar2Url);
-            else if (File.Exists(@"Data\default.png"))
-                data = File.ReadAllBytes(@"Data\default.png");
-            else
-                throw new Exception();
-            var avatar2 = new MagickImage(data);
-            avatar2.Resize(150, 150);
-            avatar2 = RoundImage(avatar2);
-            bg.Composite(avatar2, (int)(bg.Width - 50 - avatar2.Width), (int)(bg.Height / 2 - avatar2.Height / 2), CompositeOperator.Over);
-            avatar2.Dispose();
+            if (string.IsNullOrEmpty(avatar1Url))
+            {
+                if (File.Exists(@"Data\default.png"))
+                    return File.OpenRead(@"Data\default.png");
+                throw new FileNotFoundException("Default avatar not found.");
+            }
+            try
+            {
+                Stream stream = await httpClient.GetStreamAsync(avatar1Url);
+                MemoryStream memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+                return memoryStream;
+            }
+            catch
+            {
+                if (File.Exists(@"Data\default.png"))
+                    return File.OpenRead(@"Data\default.png");
+                throw;
+            }
+        }
+
+        static Stream CreateCanvas(Stream background1, Stream background2, Stream avatar1, Stream avatar2, string[] messages)
+        {
+            using MagickImage img = new MagickImage(MagickColors.Black, 900, 300) { HasAlpha = false };
+            try
+            {
+                if (background1.Length > 0)
+                {
+                    using MagickImage bg1 = new MagickImage(background1) { HasAlpha = false };
+                    CropFill(bg1, 900, 300);
+                    bg1.BrightnessContrast(new Percentage(-25), new Percentage(0));
+                    img.Composite(bg1, 0, 0, CompositeOperator.Over);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+            }
+            try
+            {
+                if (background2.Length > 0)
+                {
+                    using MagickImage bg2 = new MagickImage(background2) { HasAlpha = false };
+                    CropFill(bg2, 900, 300);
+                    bg2.BrightnessContrast(new Percentage(-25), new Percentage(0));
+                    img.Composite(bg2, 0, 0, CompositeOperator.Over);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+            }
+            try
+            {
+                if (avatar1.Length > 0)
+                {
+                    using MagickImage avt1 = new MagickImage(avatar1);
+                    avt1.Resize(150, 150);
+                    RoundImage(avt1);
+                    img.Composite(avt1, 50, (int)(img.Height / 2 - avt1.Height / 2), CompositeOperator.Over);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+            }
+            try
+            {
+                if (avatar2.Length > 0)
+                {
+                    using MagickImage avt2 = new MagickImage(avatar2);
+                    avt2.Resize(150, 150);
+                    RoundImage(avt2);
+                    img.Composite(avt2, (int)(img.Width - 50 - avt2.Width), (int)(img.Height / 2 - avt2.Height / 2), CompositeOperator.Over);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+            }
             for (int i = 0; i < messages.Length; i++)
             {
                 string message = messages[i];
                 if (string.IsNullOrEmpty(message))
                     continue;
-                using MagickImage bg2 = new MagickImage();
+                using MagickImage text = new MagickImage();
                 if (i == 0)
                 {
                     MagickReadSettings settings = new MagickReadSettings
                     {
                         BackgroundColor = MagickColors.Transparent,
-                        Width = bg.Width - 150 - 150 - 100,
+                        Width = img.Width - 150 - 150 - 100,
                         TextGravity = Gravity.North,
                         FontPointsize = 30,
                         FontStyle = FontStyleType.Normal,
@@ -136,15 +179,15 @@ namespace EHVN.AronaBot
                         Font = @"Data\Fonts\VNF-Comic Sans.ttf",
                         FontFamily = "VNF-Comic Sans"
                     };
-                    bg2.Read("caption:" + message, settings);
-                    bg.Composite(bg2, 50 + 150, 60, CompositeOperator.Over);
+                    text.Read("caption:" + message, settings);
+                    img.Composite(text, 50 + 150, 60, CompositeOperator.Over);
                 }
                 else if (i == 1)
                 {
                     MagickReadSettings settings = new MagickReadSettings
                     {
                         BackgroundColor = MagickColors.Transparent,
-                        Width = bg.Width - 150 - 150 - 100,
+                        Width = img.Width - 150 - 150 - 100,
                         TextGravity = Gravity.North,
                         FontPointsize = 35,
                         FontStyle = FontStyleType.Bold,
@@ -153,15 +196,15 @@ namespace EHVN.AronaBot
                         Font = @"Data\Fonts\Pacifico-Regular.ttf",
                         FontFamily = "Pacifico"
                     };
-                    bg2.Read("caption:" + message, settings);
-                    bg.Composite(bg2, 50 + 150, 90, CompositeOperator.Over);
+                    text.Read("caption:" + message, settings);
+                    img.Composite(text, 50 + 150, 90, CompositeOperator.Over);
                 }
                 else if (i == 2)
                 {
                     MagickReadSettings settings = new MagickReadSettings
                     {
                         BackgroundColor = MagickColors.Transparent,
-                        Width = bg.Width - 150 - 150 - 100,
+                        Width = img.Width - 150 - 150 - 100,
                         TextGravity = Gravity.North,
                         FontPointsize = 30,
                         FontStyle = FontStyleType.Normal,
@@ -170,15 +213,15 @@ namespace EHVN.AronaBot
                         Font = @"Data\Fonts\VNF-Comic Sans.ttf",
                         FontFamily = "VNF-Comic Sans"
                     };
-                    bg2.Read("caption:" + message, settings);
-                    bg.Composite(bg2, 50 + 150, 145, CompositeOperator.Over);
+                    text.Read("caption:" + message, settings);
+                    img.Composite(text, 50 + 150, 145, CompositeOperator.Over);
                 }
                 else if (i == 3)
                 {
                     MagickReadSettings settings = new MagickReadSettings
                     {
                         BackgroundColor = MagickColors.Transparent,
-                        Width = bg.Width - 150 - 150 - 100,
+                        Width = img.Width - 150 - 150 - 100,
                         Height = 60,
                         TextGravity = Gravity.Center,
                         FontStyle = FontStyleType.Bold,
@@ -191,16 +234,16 @@ namespace EHVN.AronaBot
                             MaxFontPointsize = 35
                         }
                     };
-                    bg2.Read("caption:" + message, settings);
-                    bg.Composite(bg2, 50 + 150, 180, CompositeOperator.Over);
+                    text.Read("caption:" + message, settings);
+                    img.Composite(text, 50 + 150, 180, CompositeOperator.Over);
                 }
                 else if (i == 4)
                 {
                     MagickReadSettings settings = new MagickReadSettings
                     {
                         BackgroundColor = MagickColors.Transparent,
-                        Width = bg.Width - 150 - 150 - 100,
-                        Height = bg.Height,
+                        Width = img.Width - 150 - 150 - 100,
+                        Height = img.Height,
                         FontPointsize = 20,
                         FontStyle = FontStyleType.Bold,
                         FontWeight = FontWeight.Bold,
@@ -209,22 +252,20 @@ namespace EHVN.AronaBot
                         FontFamily = "VNF-Comic Sans",
                         FillColor = MagickColors.White
                     };
-                    bg2.Read("caption:" + message, settings);
-                    bg.Composite(bg2, 50 + 150, -10, CompositeOperator.Over);
+                    text.Read("caption:" + message, settings);
+                    img.Composite(text, 50 + 150, -10, CompositeOperator.Over);
                 }
             }
-            avatar1.Dispose();
-            MagickImage finalBg = new MagickImage(bg.ToByteArray());
-            bg.Dispose();
             new Drawables()
                 .FontPointSize(15)
                 .Font("Arial")
-                .FillColor(MagickColors.White)
-                .Text(10, 15, "AronaBot by ElectroHeavenVN")
-                .Draw(finalBg);
-            byte[] result = finalBg.ToByteArray();
-            finalBg.Dispose();
-            return result;
+                .FillColor(MagickColors.LightYellow)
+                .Text(10, 15, "ZepLaoSharp - Developed by ElectroHeavenVN")
+                .Draw(img);
+            MemoryStream memoryStream = new MemoryStream();
+            img.Write(memoryStream, MagickFormat.Jpg);
+            memoryStream.Position = 0;
+            return memoryStream;
         }
 
         static void CropFill(MagickImage bg, uint width, uint height)
@@ -257,12 +298,12 @@ namespace EHVN.AronaBot
             bg.Crop(new MagickGeometry(x, y, width, height));
         }
 
-        static MagickImage RoundImage(MagickImage image)
+        static void RoundImage(MagickImage image)
         {
             uint width = image.Width;
             uint height = image.Height;
             uint size = Math.Min(width, height);
-            var mask = new MagickImage(MagickColors.Transparent, size, size);
+            using MagickImage mask = new MagickImage(MagickColors.Transparent, size, size);
             var drawables = new Drawables()
                 .FillColor(MagickColors.White)
                 .Circle(size / 2, size / 2, size / 2, 0);
@@ -270,8 +311,6 @@ namespace EHVN.AronaBot
             image.Alpha(AlphaOption.Set);
             image.Extent(size, size, Gravity.Center, MagickColors.Transparent);
             image.Composite(mask, CompositeOperator.CopyAlpha);
-            mask.Dispose();
-            return image;
         }
 
         static string ReplaceUnicodeChars(string text)

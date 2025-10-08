@@ -4,8 +4,6 @@ using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
 using EHVN.ZepLaoSharp.FFMpeg;
 using GTranslate.Translators;
-using PixivCS.Api;
-using PixivCS.Models.Illust;
 using SoundCloudExplode;
 using SoundCloudExplode.Exceptions;
 using System;
@@ -45,7 +43,6 @@ namespace EHVN.AronaBot.Commands
         static SemaphoreSlim cmdSemaphore = new SemaphoreSlim(1, 1);
         static SoundCloudClient? scClient;
         static ZingMP3Client? zClient;
-        static PixivAppApi? pixivClient;
 
         internal static void Register(CommandsExtension cmd)
         {
@@ -656,6 +653,7 @@ namespace EHVN.AronaBot.Commands
                 return;
             try
             {
+                const string WATERMARK_SUFFIX = "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN";
                 string contentUrl = "";
                 string thumbnailUrl = "";
                 long fileSize = 0;
@@ -730,9 +728,8 @@ namespace EHVN.AronaBot.Commands
                         else if (isVideo)
                         {
                             using ZaloAttachment attachment = AttachmentUtils.FromVideoData(memStream).ConvertVideoToWebp().AsSticker();
-                            //await ctx.Thread.SendMessageAsync(attachment);
                             Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
-                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.Unknown, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp" + WATERMARK_SUFFIX), Path.ChangeExtension(dict["thumb"], "webp" + WATERMARK_SUFFIX), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
                             await ctx.Message.RemoveAllReactionsAsync();
                             await ctx.Message.AddReactionAsync("/-ok");
                             return;
@@ -752,7 +749,7 @@ namespace EHVN.AronaBot.Commands
                             {
                                 attachment.ConvertGIFToWebp();
                                 Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
-                                await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                                await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp" + WATERMARK_SUFFIX), Path.ChangeExtension(dict["thumb"], "webp" + WATERMARK_SUFFIX), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
                             }
                             await ctx.Message.RemoveAllReactionsAsync();
                             await ctx.Message.AddReactionAsync("/-ok");
@@ -772,12 +769,16 @@ namespace EHVN.AronaBot.Commands
                         await ctx.Thread.TriggerTypingAsync();
                         if (!isGIF)
                         {
-                            using ZaloAttachment attachment = ZaloAttachment.FromUrl(Path.ChangeExtension(contentUrl, Path.GetExtension(contentUrl) + "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), "image.png", fileSize, Encoding.ASCII.GetString(MD5.HashData([])), Path.ChangeExtension(thumbnailUrl, Path.GetExtension(thumbnailUrl) + "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), width, height).AsSticker();
-                            await ctx.Thread.SendMessageAsync(attachment);
+                            using MemoryStream memoryStream = new MemoryStream();
+                            using (Stream stream = await httpClient.GetStreamAsync(contentUrl))
+                                await stream.CopyToAsync(memoryStream);
+                            using ZaloAttachment attachment = ZaloAttachment.FromData("image.png", memoryStream).ConvertImageToWebp().AsSticker().WithStickerType(ZaloStickerImageType.AISticker);
+                            Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp" + WATERMARK_SUFFIX), Path.ChangeExtension(dict["thumb"], "webp" + WATERMARK_SUFFIX), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
                         }
                         else
                         {
-                            MemoryStream memoryStream = new MemoryStream();
+                            using MemoryStream memoryStream = new MemoryStream();
                             using (Stream imgStream = await httpClient.GetStreamAsync(contentUrl))
                             {
                                 await imgStream.CopyToAsync(memoryStream);
@@ -791,7 +792,7 @@ namespace EHVN.AronaBot.Commands
                             }
                             using ZaloAttachment attachment = ZaloAttachment.FromData("image." + (isGIF ? "gif" : "png"), memoryStream).AsSticker().WithStickerType(ZaloStickerImageType.AISticker).ConvertGIFToWebp();
                             Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
-                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp" + WATERMARK_SUFFIX), Path.ChangeExtension(dict["thumb"], "webp" + WATERMARK_SUFFIX), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
                         }
                         await ctx.Message.RemoveAllReactionsAsync();
                         await ctx.Message.AddReactionAsync("/-ok");
@@ -811,7 +812,7 @@ namespace EHVN.AronaBot.Commands
                             using ZaloAttachment attachment = AttachmentUtils.FromVideoData(memStream).ConvertVideoToWebp().AsSticker();
                             //await ctx.Thread.SendMessageAsync(attachment);
                             Dictionary<string, string> dict = await ctx.Client.APIClient.UploadPhotoOriginalAsync(attachment.FileName, attachment.DataStream, ctx.Client.MyCloud.ThreadID, ctx.Client.MyCloud.ThreadType);
-                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), Path.ChangeExtension(dict["thumb"], "webp?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN"), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.Unknown, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
+                            await ctx.Client.APIClient.SendWebpStickerImageMessageAsync(Path.ChangeExtension(dict["org"], "webp" + WATERMARK_SUFFIX), Path.ChangeExtension(dict["thumb"], "webp" + WATERMARK_SUFFIX), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 500, 500, ZaloStickerImageType.AISticker, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ctx.Thread.ThreadID, ctx.Thread.ThreadType);
                             await ctx.Message.RemoveAllReactionsAsync();
                             await ctx.Message.AddReactionAsync("/-ok");
                         }).ConfigureAwait(false);
@@ -830,11 +831,6 @@ namespace EHVN.AronaBot.Commands
                 return;
             try
             {
-                if (pixivClient is null)
-                {
-                    pixivClient = new PixivAppApi();
-                    await pixivClient.AuthAsync(BotConfig.ReadonlyConfig.PixivRefreshToken);
-                }
                 if (isDownloading)
                 {
                     await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
@@ -856,37 +852,17 @@ namespace EHVN.AronaBot.Commands
                 await ctx.Thread.TriggerTypingAsync();
                 try
                 {
-                    IllustDetail illustDetail = await pixivClient.GetIllustDetailAsync(linkOrID);
-                    if (illustDetail.Illust?.ImageUrls is null)
+                    if (!PixivClient.GetImage(BotConfig.ReadonlyConfig.PixivRefreshToken, illustID, out string title, out string caption, out List<Stream> imageStreams))
                     {
                         await ctx.Message.RemoveAllReactionsAsync();
                         return;
                     }
                     ZaloMessageBuilder msgBuilder = new ZaloMessageBuilder().GroupMediaMessages();
-                    if (illustDetail.Illust.MetaPages.Count > 0)
+                    for (int i = 0; i < imageStreams.Count; i++)
                     {
-                        for (int i = 0; i < illustDetail.Illust.MetaPages.Count; i++)
-                        {
-                            MetaPage metaPage = illustDetail.Illust.MetaPages[i];
-                            if (metaPage.ImageUrls is null)
-                                continue;
-                            if (metaPage.ImageUrls.Original is null && metaPage.ImageUrls.Large is null)
-                                continue;
-                            Stream imgStream = await pixivClient.GetImageStreamAsync(metaPage.ImageUrls.Original ?? metaPage.ImageUrls.Large!);
-                            imgStream.Position = 0;
-                            msgBuilder.AddAttachment(ZaloAttachment.FromData($"{illustDetail.Illust.Id}-{i + 1}.png", imgStream).AsOriginal().GeneratePreviewThumb().WithGroupMediaTitle(illustDetail.Illust.Title));
-                        }
-                    }
-                    else
-                    {
-                        if (illustDetail.Illust.ImageUrls.Original is null && illustDetail.Illust.ImageUrls.Large is null)
-                        {
-                            await ctx.Message.RemoveAllReactionsAsync();
-                            return;
-                        }
-                        Stream imgStream = await pixivClient.GetImageStreamAsync(illustDetail.Illust.ImageUrls.Original ?? illustDetail.Illust.ImageUrls.Large);
+                        Stream imgStream = imageStreams[i];
                         imgStream.Position = 0;
-                        msgBuilder.AddAttachment(ZaloAttachment.FromData($"{illustDetail.Illust.Id}.png", imgStream).AsOriginal().GeneratePreviewThumb().WithGroupMediaTitle(illustDetail.Illust.Title));
+                        msgBuilder.AddAttachment(ZaloAttachment.FromData($"{illustID}-{i + 1}.png", imgStream).AsOriginal().GeneratePreviewThumb().WithGroupMediaTitle(title));
                     }
                     if (msgBuilder.Attachments.Count == 0)
                     {
@@ -894,8 +870,8 @@ namespace EHVN.AronaBot.Commands
                         return;
                     }
                     await ctx.Thread.SendMessagesAsync(msgBuilder);
-                    if (!string.IsNullOrEmpty(illustDetail.Illust.Caption))
-                        await ctx.Thread.SendMessageAsync(illustDetail.Illust.Caption.Replace("<br />", "\n").Replace("\r", ""));
+                    if (!string.IsNullOrEmpty(caption))
+                        await ctx.Thread.SendMessageAsync(caption.Replace("<br />", "\n").Replace("\r", ""));
                     await ctx.Message.RemoveAllReactionsAsync();
                     await ctx.Message.AddReactionAsync("/-ok");
                     foreach (var attachment in msgBuilder.Attachments)

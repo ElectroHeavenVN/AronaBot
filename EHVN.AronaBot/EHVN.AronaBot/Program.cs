@@ -47,6 +47,7 @@ namespace EHVN.AronaBot
                 };
                 File.WriteAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zotify", "credentials.json"), obj.ToJsonString());
             }
+#if !DEBUG
             DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
             if (vietnamTime.Hour < 6)
                 Console.WriteLine("Waiting until 06:00 AM to start...");
@@ -58,6 +59,7 @@ namespace EHVN.AronaBot
                 Thread.Sleep(1000 * 20);
             }
             while (true);
+#endif
             startTime = DateTime.UtcNow;
             new Thread(CheckRestart).Start();
             InitializeClient();
@@ -98,6 +100,7 @@ namespace EHVN.AronaBot
 
         static async void CheckRestart()
         {
+#if !DEBUG
             while (true)
             {
                 DateTime vietnamTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "SE Asia Standard Time");
@@ -111,6 +114,7 @@ namespace EHVN.AronaBot
                 }
                 Thread.Sleep(1000 * 20);
             }
+#endif
         }
 
         static async Task EventListeners_Disconnected(ZaloClient client, DisconnectedEventArgs args)

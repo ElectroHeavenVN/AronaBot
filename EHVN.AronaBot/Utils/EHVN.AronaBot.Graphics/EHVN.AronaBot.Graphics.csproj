@@ -10,7 +10,6 @@
     <!--<IsTrimmable>true</IsTrimmable>-->
     <PublishAot>true</PublishAot>
     <_AggressiveAttributeTrimming>true</_AggressiveAttributeTrimming>
-    <!--<DebuggerSupport>false</DebuggerSupport>-->
     <EventSourceSupport>false</EventSourceSupport>
     <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
     <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
@@ -19,13 +18,9 @@
     <MetricsSupport>false</MetricsSupport>
     <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
     <OptimizationPreference>Size</OptimizationPreference>
-    <!--<PublishTrimmed>true</PublishTrimmed>-->
-    <!--<StackTraceSupport>false</StackTraceSupport>-->
-    <!--<TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>-->
-    <!--<UseSystemResourceKeys>true</UseSystemResourceKeys>-->
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <RollForward>LatestMinor</RollForward>
-    <BaseOutputPath>..\Output\</BaseOutputPath>
+    <BaseOutputPath>$(SolutionDir)Output\</BaseOutputPath>
     <Platforms>x86</Platforms>
   </PropertyGroup>
 

@@ -6,11 +6,26 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>false</Deterministic>
-    <BaseOutputPath>..\Output\</BaseOutputPath>
-    <Platforms>x86</Platforms>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!--<IsTrimmable>true</IsTrimmable>-->
+    <PublishAot>true</PublishAot>
+    <_AggressiveAttributeTrimming>true</_AggressiveAttributeTrimming>
+    <EventSourceSupport>false</EventSourceSupport>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <MetricsSupport>false</MetricsSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <BaseOutputPath>$(SolutionDir)Output\</BaseOutputPath>
+    <Platforms>x86;AnyCPU</Platforms>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>embedded</DebugType>
   </PropertyGroup>
 
@@ -18,12 +33,15 @@
     <DebugType>full</DebugType>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
     <PackageReference Include="GTranslate" Version="2.3.1" />
     <PackageReference Include="Matroska" Version="0.0.12" />
-    <PackageReference Include="MetadataExtractor" Version="2.8.1" />
-    <PackageReference Include="Natsukage.PixivCS" Version="0.1.3" />
+    <PackageReference Include="MetadataExtractor" Version="2.9.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
     <PackageReference Include="SoundCloudExplode" Version="1.6.7" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.9" />
