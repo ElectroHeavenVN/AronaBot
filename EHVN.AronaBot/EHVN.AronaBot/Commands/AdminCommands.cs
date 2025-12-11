@@ -4,8 +4,10 @@ using EHVN.ZepLaoSharp;
 using EHVN.ZepLaoSharp.Commands;
 using EHVN.ZepLaoSharp.Entities;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace EHVN.AronaBot.Commands
@@ -95,6 +97,44 @@ namespace EHVN.AronaBot.Commands
                 .AddAlias("gl")
                 .WithDescription("Lấy link đính kèm từ tin nhắn được nhắc đến")
                 .WithHandler(GetLink)
+            );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("call")
+                .WithDescription("Nháy máy gọi")
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("member")
+                    .WithDescription("Member")
+                    .WithType<ZaloMember?>()
+                    .WithDefaultValue(null)
+                    .AsOptional())
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("count")
+                    .WithDescription("Count")
+                    .WithType<int>()
+                    .WithDefaultValue(1)
+                    .AsOptional()
+                ).WithHandler(DirectCall)
+            );
+            cmd.RegisterCommand(new CommandBuilder()
+                .AddCheck(adminCheck)
+                .AddCheck(groupCheck)
+                .WithCommand("grcall")
+                .WithDescription("Nháy máy gọi nhóm")
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("member")
+                    .WithDescription("Member")
+                    .WithType<ZaloMember?>()
+                    .WithDefaultValue(null)
+                    .AsOptional())
+                .AddParameter(new CommandParameterBuilder()
+                    .WithName("count")
+                    .WithDescription("Count")
+                    .WithType<int>()
+                    .WithDefaultValue(1)
+                    .AsOptional()
+                ).WithHandler(GroupCall)
             );
         }
 
@@ -312,6 +352,87 @@ namespace EHVN.AronaBot.Commands
             await ctx.Message.AddReactionAsync("/-ok");
             long delay = (long)(DateTime.UtcNow - ctx.Message.Timestamp).TotalMilliseconds;
             await ctx.RespondAsync($"Pong!\nDelay: {delay}ms");
+        }
+
+        static async Task DirectCall(CommandContext ctx)
+        {
+            ZaloMember? member = null;
+            if (ctx.Arguments.Count > 0)
+                member = (ZaloMember?)ctx.Arguments[0];
+            if (member is null || member.IsCurrent)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                return;
+            }
+            int count = (int)ctx.Arguments[1]!;
+            if (count <= 0 || count > 20)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                return;
+            }
+            await ctx.Message.AddReactionAsync("/-ok");
+            for (int i = 0; i < count; i++)
+            {
+                try
+                {
+                    await member.SendMissedCallAsync(i % 2 == 0 ? ZaloCallRequestType.Voice : ZaloCallRequestType.Video);
+                    await Task.Delay(2000);
+                }
+                catch (Exception ex)
+                {
+                    await ctx.RespondAsync("Lỗi khi gọi: " + ex.Message);
+                    return;
+                }
+            }
+            await ctx.RespondAsync($"Em đã nháy máy {member.Mention} {count} lần rồi thầy ạ!");
+        }
+
+        static async Task GroupCall(CommandContext ctx)
+        {
+            static async Task SendMissedCallAsync(ZaloClient client, ZaloGroup group, List<long> memberIDs, ZaloCallRequestType callType = ZaloCallRequestType.Video, CancellationToken cancellationToken = default)
+            {
+                int callID = Random.Shared.Next(900000000, 2000000000);
+                var info = await client!.APIClient.RequestGroupCallAsync(group.ID, "", group.AvatarLinkFull, memberIDs.ToArray(), callID, Math.Max(memberIDs.Count, 8), callType, cancellationToken);
+                await client.APIClient.BroadcastGroupCallAsync(info.HostCallID, callID, 1, 0, 1, cancellationToken);
+                var server = info.Params?.CallSetting.Servers[Random.Shared.Next(info.Params?.CallSetting.Servers.Count ?? 0)];
+                string sessionID = info.Params?.CallSetting.SessionID ?? "";
+                await client.APIClient.RequestGroupCallAsync(group.ID, "", group.AvatarLinkFull, memberIDs.ToArray(), info.HostCallID, server?.RtcpAddressV4 ?? "", server?.RtpAddressV4 ?? "", server?.RtcpAddressV6 ?? "", server?.RtpAddressV6 ?? "", sessionID, callID, Math.Max(memberIDs.Count, 8), cancellationToken: cancellationToken);
+                await client.APIClient.SendGroupCallPingAsync(info.HostCallID, callID, 2, 0, 0, cancellationToken);
+                await Task.Delay(5000, cancellationToken);
+                await client.APIClient.CancelGroupCallAsync(group.ID, info.HostCallID, callID, cancellationToken);
+                await client.APIClient.FinishGroupCallAsync(server?.RtpAddressV4 ?? "", sessionID, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), memberIDs.ToArray(), info.HostCallID, callID, cancellationToken);
+            }
+
+            ZaloMember? member = null;
+            if (ctx.Arguments.Count > 0)
+                member = (ZaloMember?)ctx.Arguments[0];
+            if (member is null || member.IsCurrent)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                return;
+            }
+            int count = (int)ctx.Arguments[1]!;
+            if (count <= 0 || count > 20)
+            {
+                await ctx.Message.AddReactionAsync(new ZaloEmoji("❌", 4305703));
+                return;
+            }
+            await ctx.Message.AddReactionAsync("/-ok");
+            for (int i = 0; i < count; i++)
+            {
+                try
+                {
+                    //await ctx.Group.SendMissedCallAsync([member]);
+                    await SendMissedCallAsync(ctx.Client, ctx.Group!, [member.ID]);
+                    await Task.Delay(1000);
+                }
+                catch (Exception ex)
+                {
+                    await ctx.RespondAsync("Lỗi khi gọi: " + ex.Message);
+                    return;
+                }
+            }
+            await ctx.RespondAsync($"Em đã nháy máy gọi nhóm với {member.Mention} {count} lần rồi thầy ạ!");
         }
 
         static async Task ListAdmins(CommandContext ctx)

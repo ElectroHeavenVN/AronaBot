@@ -653,7 +653,7 @@ namespace EHVN.AronaBot.Commands
                 return;
             try
             {
-                const string WATERMARK_SUFFIX = "?Author=アロナちゃん&Library=ZepLaoSharp_by_ElectroHeavenVN";
+                const string WATERMARK_SUFFIX = "?Author=Arona-chan&Library=ZepLaoSharp_by_ElectroHeavenVN";
                 string contentUrl = "";
                 string thumbnailUrl = "";
                 long fileSize = 0;

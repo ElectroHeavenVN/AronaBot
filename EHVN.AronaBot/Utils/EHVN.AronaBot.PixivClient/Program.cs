@@ -2,7 +2,6 @@
 using PixivCS.Models.Illust;
 using System;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace EHVN.AronaBot.PixivClient
@@ -19,6 +18,7 @@ namespace EHVN.AronaBot.PixivClient
                     """
                     Usage: EHVN.AronaBot.PixivClient <refresh token> <id>
                     Output image(s) will be written to the standard output.
+                    Format: [Images count (int32)][Image 1 size (int64)][Image 1 data][Image 2 size (int64)][Image 2 data]...[Title (string)][Caption (string)]
                     """
                 );
                 return 0;

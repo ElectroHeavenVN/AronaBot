@@ -142,7 +142,7 @@ namespace EHVN.AronaBot
             options.AutoMarkAsDelivered = true;
             JsonNode node = JsonNode.Parse(File.ReadAllText(@"Data\credentials-pc.json")) ?? throw new Exception("Missing credentials-pc.json");
             clientBuilder = clientBuilder
-                //.WithLogger(new ZepLaoSharp.Logging.DefaultLogger(ZepLaoSharp.Logging.LogLevel.Trace))
+                .WithLogger(new ZepLaoSharp.Logging.DefaultLogger(ZepLaoSharp.Logging.LogLevel.Trace))
                 .WithMaxTimeCache(TimeSpan.FromDays(1))
                 .UseLongPolling(options)
                 .WithCredential(new LoginCredentialBuilder()
